@@ -9,6 +9,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- AOS (Animate On Scroll) CSS -->
     <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <!-- FontAwesome Ícones -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
@@ -45,6 +47,12 @@
         html {
             scroll-behavior: smooth;
         }
+
+        @keyframes ticker {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+        }
+
         summary::-webkit-details-marker { display: none; }
         .catalog { scrollbar-width: none; -ms-overflow-style: none; }
         .catalog::-webkit-scrollbar { display: none; }
@@ -68,42 +76,93 @@
             color: #fff; border-color: #D4AF37; background: rgba(212, 175, 55, 0.12);
             box-shadow: 0 0 20px rgba(212, 175, 55, 0.2);
         }
+        
+        .quiz-option {
+            transition: all 0.2s;
+            border: 1px solid rgba(255,255,255,0.1);
+            background: rgba(15, 23, 42, 0.6);
+        }
+        .quiz-option:hover:not(.disabled) {
+            border-color: #D4AF37;
+            background: rgba(212, 175, 55, 0.1);
+        }
+        .quiz-option.correct {
+            border-color: #10b981 !important;
+            background: rgba(16, 185, 129, 0.15) !important;
+        }
+        .quiz-option.wrong {
+            border-color: #ef4444 !important;
+            background: rgba(239, 68, 68, 0.15) !important;
+        }
+        .quiz-option.disabled { cursor: default; }
+
         .tab-btn[aria-selected="true"].tab-blue {
             color: #fff; border-color: #00E5FF; background: rgba(0, 229, 255, 0.1);
             box-shadow: 0 0 20px rgba(0, 229, 255, 0.2);
         }
     </style>
+
+    <style id="aos-fallback">
+        /* Garante visibilidade se a lib AOS falhar (comum ao abrir HTML local) */
+        [data-aos] {
+            opacity: 1 !important;
+            transform: none !important;
+        }
+    </style>
+
 </head>
 <body class="bg-brandDark text-slate-200 font-sans antialiased selection:bg-brandBlue selection:text-black">
 
     <!-- Header / Nav -->
     <nav class="fixed top-0 w-full z-50 glass-card border-b border-slate-800">
         <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-            <div class="flex items-center space-x-3">
-                <img src="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAUDBAQEAwUEBAQFBQUGBwwIBwcHBw8LCwkMEQ8SEhEPERETFhwXExQaFRERGCEYGh0dHx8fExciJCIeJBweHx7/2wBDAQUFBQcGBw4ICA4eFBEUHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh7/wAARCACQAJADASIAAhEBAxEB/8QAHAAAAgIDAQEAAAAAAAAAAAAABgcABQMECAEC/8QASBAAAgEDAgQDBQMHCAgHAAAAAQIDBAURAAYHEiExE0FRFCIyYXGBkaEIFSNCUmKCFjNDY5KTwdEXJCU0U3Kio0Rkc7Gy4fD/xAAbAQACAwEBAQAAAAAAAAAAAAADBAACBQEGB//EADkRAAECBAMFBQcDAwUAAAAAAAECAwAEESESMUEFUWFxgRMikaHwFDJCUnKxwYKS0aKy4QYzNFNi/9oADAMBAAIRAxEAPwDjLU1NTUiRNTU1NSJE17rJTwSzyrFFG0jscKqjJJ+Q0abW4c3e8VLRGGdpE6yQU8fiSRj+sOQkX8bA/LTDcutaSs0CRmSQAOZNoEt5KSE5k5AXJ6C8BCqT2Gtuit9TVOEggklY+SKSfw00VtWxdsS+Hd7nb/aE+KKnU3KcH0JBWFT/AGtWcPFjZ1rjENs2tfbkB2NXePYo/wC7pVX/AOWrodkkmxU59CaD9yykHpWKLTNH4Qn6jfwTi86QC2jh1umvIMNiuLA+Ypn/AMtb954VbvtsYapsFyQYz1pn/wAtGNFx1jgmDQcM9pEZ71DVVQ39p5eurC58fkrOX2jhrtcjAz4MlVC32MsnTWy3MSPZ3l1eKa/ekZq0T2OzifAwj6+zVlI5SenkjYeTKQfx1XSQupwQdPJ+Luz7ivhXHa9+tYPc0d39tj/uqpW6fLOtN6LYu6WKWqut0tQ/wxyKbbUk+gDFoXP05dZbkxs5ZocTX1JqP3IKgOtIfbROAVwhf0m/gqnlWEoRjXmmDubh3cKCqMFPHOZiCy0tRF4U7D1UZKyD5xs2gapppYHZJEZWBwQRgjQ3pNbaQ4KKSciDUHkRaLtTKHFFOShmDYjmDeNfU16RjXmk4YiampqakSJqamvQNSJEAJOr3be3Ky8SFkHhUyFRLOykquTgAAdWYnoFGST2GtzYe15L/XkSOYKKAB6mfkLcikgAAD4nYkKqjqSQNNTdm5KHh3TRWyx00K7lSPEQJEiWdWHU57PVsPifsvYdB10kNIlkBx1OJSvdTlXiTokanPQXhVSluqKGzQDNW7gN5Og6m0YGtG0OGtCsu6BUSXOSMNDZKaUJWTA9jVSjPsyH/hp75HcntoB3jxD3HuWmFsRoLPZEP6G1W1PApkHzA6ufUsTnWjR2W7XupnrJhUVErHxZ6iYkj3j8TufXPc99bS2ejhRW9oWQ9ei+ePn2Hn92iI2S/OLDswcRGQySn6U5DndR1MCM6zLAoatXPUnmfQ3CBqGlZz0GrGkstbMniRU0rr+0F6ffot2xUVVPczSUNigNYcqEmpxMV9CAfP69NMiLZ9HaaWnu/EK5NT+KB7La6ZfEqKjHkka9T9RgDzOvRymxGcGNxVBy9HyjCndtqZWEBNScgLk9BpxrQQrdobGv24LlHRWy2yzyPIseegUMxwAW7D7Tqz4jbDq9n3YWe6Aw1wQMyMpCt80fs4+Y0xk3lvWa4RU2w7RQWqltR9oNKyJKEC5PNVSnEcfryKeYnzJ1Sb940Xrc1sgse9dn01OakIKitgTnYKHBeWBH6B+TmXo3QnuO2sja86ZB5DTDQWg1xVNFJyofvbOHdmMvziFOzCuzPwgXrvB03XBI4wn5LU7nAaIN6NIAfx1p1VtqKd+SaF4yeoDL3+Y9dMO27Hu256Gru+z6VrhSQANNSiQl4GdmZYEY48V0jCFu3VsDOtOxR0sUxo7pWiFVcLPTzQOfD9QynBVh6jH10vLGWn1lLKhUZjUc4cfW7JoCnQaHIgE1jV2bxBvlhp1tNxjhv1iJHPbbiDJGPnG3xRMPIqenpppNsawcS7BNednTVFa8Cc1VQTYa40Q9cj/eovn8Y9W7aEt57T23+hqtr1VXX0TQq0nMqiSNse+MdcgH8MaGrDd7ps2+xXTb92mt9dA3uM3uZ9RzAlSD8+h0B/Zczs9RelDhrmPhV9Qy/UKHjEanWJ9IS9pkfiTyP3BtvEDm6tu1lkq/BqFDI3WORDlZFzjIP/4jscHVARg66NqrtauLdrq5jb46TdMKGa42+BQFr1A61VMPKYDq8Y6OPnghEbjtMtrrTC5WRGAeKVDlZEPUMPkf/o9RoB7OaaLzScJTZaTmk6c0n4T0NxDDanGlhp01rkrRQ/BGo/EVGpqamk4bia27ZSS1lZFTwIXkkYKqjuSegGtUd9MDhVZDWVgnL+F4jGFZe3hJylpZf4YwcH1ZdOyTSFLK3TRCQVKPAXP+OMAfWpKcKBVRsOZy/wAwZ0ddDsjZ9PPRJG9xlZktikZEkwHLJWMPNUyUjH1b9boIWmwVMrGsrLvbqeqlkDP7TO3i+8SS7+6SB3J8/lqr3Vf5twbqapokaOkjK09BAmQY4E6Iox2z3+p1nrKV7bVyPdo6qkeROqvAeYqy5BAOM593qSOjZ66daeK0Kmlp76qW0SNEjl5mphZ5vCpLCVd0a6qOp6/a0S47pudOlXa7dcp/Y5PcmMcrBaoKcgsPMZ6geQ+esW2P09SGEKTSRRO4jkcKCFBPT5jvjzwdYrdtqpuVPNUUc0bNDCZnRnXmIABPQEnPyx5HWtbq2KgcqFkeoyV8guCpB+fc/hp2UecStKncuP4hZ9tBQpDdzw/MOKWtl2yLZBY2goHrLTDW1NdJF40yluVSIw3QsWboW6KO3bX1Fa6+quEq189XRyTECpqJTJUVdSP6yYD4f3Y8L9dV3FBGhr7PD2ZbFbo/7UkWibZ9ZU2irMc0ZraNHDPTufhB7lD+qc57dO2tD/UR2k6lSJBVFU660AOQy6k0rGRsRUgwA9Oiyib8jmdTSvSlQIcmyqewWfYVfbLHZLhW19VRy08EcFBIMO6Ecxdwsca9erEj7dFF/PCbetvFc8Swz1HvypPaJnjlcdD4iBcFsgjnRg3oxHeWa57dvPDHcK2OsLVAtNSHo3GJ0PhN3Xz+oyNB9Nx9se2LctHTyi41EahI4YG9xcDGMjoAPl+Ovjsi5tCWe7BxlSlqJqDdQ55Wvwj6E8uUeaL7bgwJpQiw6Zwvd2bIuFg3BJd+D1bVUVdFGZqm1vHM1LURqMsUkkRUcAZJSTlceRbvqk4jXCi35wUtXES522jtl9S5LSiam6rKniGNuc9+XpzDOSMYHfRq3FLcm/N2Ugr656a3wibFFTuUiZmp5fix8eF/a6ZYdBjSRFx5vybKG2Fui13ORn/zB/z1uT+zFykzLups5iFxnQ1qCdcuPCEJHaDc8w6B7gBsd9qEbs/5i/vW3aOw01HXQ3ujq1ZH5o6ZXDHDnsxwD05TkfP00I7kSzXW3GWjetFYrHmjl5AiDPfp1OfPoMHr1zqzgqrVb4oaO63KpqIlqmikpwQhZMBkkR2yobBIOQMkaorm9BEitTRyxxyDCliCG9cn/D8dfSnHA3VhzT1T1zvHjGEFRDqfXG/rSBi3G72e6wXK1zvTVdJIJoJY3AKsPMevzHoeumRvCCh3ztSHdFsp44JaiVkqqWMdKSuxzOg9I5hl19HyP1tBMkyO+XHN16kav+H11o7fuKaz1byQWm9qKOr5iOaKUnMMwI80fBB+Z15mcaTJuCbavhqFD5kfEOYzTuUBxjflnDMjsF2r7p3K0PI5HgTCvnjKOQR1GsWi7iRapaC9SPLEI3kZxMijASZWKyAfLmGR8mGhI99KzjAZdISajMHeDcHqIbYcLiASKHUbiMx0MZKdOeQDTbmgO3uFddWLlJ6gRWqE/vSgTVBH8Hhr9mlxtCga5bgoKBR1qKhIv7TAf46b/HymNDsXZdMqlVqoq27P+8ZZykf3IoGivJwSCR/2LCT9KQVnxISIqlVZmvypJ6miR5EwoqC4ew1sc8KBFRw3ID1IHqdW9bd4qudZvBmqpCFSKKSYsPT3j08gB9NCoDO3u4wO5JwBq1gucyUaQtWvK0BCQRGFWjCHmLdT1HUjAx5k9MdWGZ0tjAMuVYC7LBZx6xv0VzdrjQ+3+FRU8cqq0lOnwDmGWZQcvgZ8+uqutjEF6mjDMypKQGIwSM9Djy1fXKS2pTRxTU0ZndBI3USPzsezMew5cdPU69mtdPcKGCrtcUntzTCBoi6lZSV6FQcEHpj7RpwyL5c7QqrTSt/XCAIfbCKBNK+vRhib7qFuO8rPGOzUVmi+949Nnatm27WXSve9ipgp4YpRSyIGV5Jc91x1A90DLDBz2xrnO63Jb5XRVNBJUExUlNDLFA3LVQvAijnVf1hzLnKnI88aP9rcRdwQhKrcDi+WskLJdKaPMsf/AKyDrzfPuf3u+tedQmecWhKlBCgBVB7wKTUEa0rnTyjz78s+xLtql0pK0E91eRxChHPdW0EuyIJ23bSS1ckzyKsuQzYC5hfIAGAPMaSkVXJPXT0whgZldwjcoRlAz15hjoAPPOul7XQQSSU+4rU6VlrrI6jwqinPOiS+BISrEfATjscEHI8xrlypjelgaR2SJKhueaZj2BOQijufU+pwPLWftDD7UHkZYQDzBV6v1ibJKlyhbcTQ4jQEUpYafxY6WIMFu0bwbdWKEZgeaVkkUEqcxv8AaD1PfQotTIeGsdNk8ixmQD5+0gattn0l33teaDZuyqKCmqa9nQ3CumCNKAMsFJ6KoH6qAufn21Z8YdsUPD+mg2cLxSXK4xwCGoEDDKyeP4hJUZ5RjAAY5PfA15yen2XJhDetLfzHqZCTWy0ojImp8oX8VZW3SaGiklEpP6OMTPgKSfU9u2Out/2ZKe4VNhD45M+1TvlhEyjBChc5AbPUDJB9NUFTLG1WZYkCKoGOUcvUDGflk9dYqepkirUqC784cMWB6nTjr2NVFmt8+ERLRSO5bhxg4sdd/Ju1y3NaxDWSRlIYg6MpVgyMcZ5ldDgjpjP00G1dxmqpldyFKqqryjGMDoenc/PVnNcaqSKoikkhenlAiAkCt1BBypbqvUdcEd8aoGKscgch9M9NAdJQq0WaAUKnOGtxCT8+7Qo9w45pKumiq3IH9Iv6Cb8REdKaQYOnzw9twvXASdm5S1DcKujwf2Zqbxl/64tIurXllI1VCu1kGzqgqR0Sap/pIHSCHuzKx81FeIv/AFAnrBZwgVf9IFmZiAEqlfr8uv8Ahoz/ACkrrJU1m0KDmJipNp0CgeQLKzH7ydAHDmbwd32ts4zUov3nH+OrzjTK1RXbdqW87FTRH6xlkI/DTc8R7HKkfMvxwin5gbF33fpT9zX8QDxxNL2GAOw1mNMyjOMa6N/Ji4Q7d4l8Ktz1rxyR7gpJ/AoZTNiLmMYdQy48z0J+fy0J8NuGlXvfiZDtFYZ6MU8jfnVpEw1IkbYkBH7WfdA8yR5abYlGFtKXjFRnCy5hwLCcJocoU0oaoJnDoJe7IECgep9PsGrfbb1EExrzTCppqbDTc6nl88A4+mulm4D8PouMO7NtVM18jstm29DeEkimRpySW516pgjC9BgfXQdtyw8C97b62nszZtZuyVbjXyLcDWrHEyxCCRgUYKRzcyjuD0J1T2pkd4KvBChZFKRz7UgiT2lHZJy/PzL0we/THbRVs7ektBcUnr2ljqPh9ugUF2HpKh92ZfXPX5nTC4TcMNqbp/KD3LsO5yXIWq2+3CmaKdVl/QOFXmYqQcg9eg1QcENp7Z3Jx3ptn3mOpmtdRU1EC8kvI45Fcqc4/d9NWkX1MPdqhVN9bjXTpFJhKHEdmtNfQ/mGptuut89pqrrtO7Jty6VcDxVHszF7bcQVIKOh/m2IJ91h08iukzdbHb7JJ7Zuatp7tXKAPZ1kIpac46KWXBlYdPcjwvqx0ZcRuHu6+G/G+DbGy5KkreHX8znPMJ4nPLyvkYJU5DZGBjm7HR/vHgJs+0cUOG+1rncbzdJNxLUxXOp9qVcSRRBg0Q5PdXmz0OemNbc/tSSeSFFFVn9vM6ngDxFhGXJ7PmGFnv8Ac3fEOHAco5ou27a+epiloZHgkgwIJ0AjaADsIVX3YR/y9fUnVbTUE0tKK6SRHMkrL0fL5GCSw7469/Prpx8IeF20t3cdN27NuTXRLZaY66SlMNQqynwJgi8zFSDkd8Aa334PhvyZrfxQ2rLUyV0kcr3iklKyBYFkdPEh6AqVAyw6+6SRjHXyjiu0XjWbxvJokYUiEY4EolhiVUi5zJlkBcYGMc3fBz27dvTWjJE4Prrq7Z/Bzh7NeeE6SJdZ494UFTUVSSVSgRtFErjlwvQEluhz5a+r3wl4R76vW49r8N77dKLdlkExkobhEDDUNGxVlR8DA5sDPXuDjTq5eW7O6+9yNN2fTwgCH3CqgSadI5ijq6SahhpjTskyqQ0hUOHPl2GR9PeHTy1X1EPhnr0PmD6/LXRew+FmwLTwWTiDxSr7pb6SqqQtJDb1U1EwOQoAYHuVc+QwDqh4/wDDWzbY2Jt3eGz7vJdtp3piaOWoiCVEEhUnkkxgNkK2DgEFCPQ6VKEEFK1XHqnr7xZCjXEgWPqsV/BK5MnD3cNvL9DdrfIo+viIfwOlJchiob66P+F7+z7YrZScCW4w/wDajeQ6X1c3NKToMskJkHDvdP8AY2IM5/yh9Cf7lxks1Q1NXQzocNG4YfUHOjfiqi1Fmt9XGcrTVU8HT9iQiaP8H0vYm5XBzpmWqI7j2hLbk96eWm5Yh/XwZZR9WjJH8B1109ps5W9tQX0ulXgFA9I6gYZpP/sFPWyh9qdYY/5OG5bltvgDvmvtczQ1VLUishcdueKONgCPMHqCPME6Ld1cZLAu16e/7Sjgoty73qqaK4NEf00QiZUk5/QgZRT05ubm765ZsN4vNLbayz0m4JLdQVgK1MDTOscuRg8wAOegA1u2+xU4mSoj3Zt+CVCCrNUTAqQcg9Iu40qZhtA70XDSibR2dT3ms/067mq4VjM9RtSmjVZF5kJ8eYKGHmMgAj00p7buDfI4xbDve9Np2fa0NJVz00E1HFHCksksLAKwVj5gAemdLeKs3WLi91XjFZVrZIVgaY3KfnaNSSqn9F1AJJ+3VffzurdV+sm2a/f1HuL2+qRImiqZJIqd2bkDPzIuOjE9M9AdUE6zofKO+zuaiHfw92tuba3H/du86+nFPaZVqniq3deWUTSK3QZz0AbOR0Ix5jSf4DXExflD2u5U7ZHttVKh9QUkI/8AfWXfV+2obBcLBbd9b/rqmhIjgasdGoq4qwVsIG5olxkjmLdB2zq+2tw+20kdhkt1x3nbbxW2MXE3qGOI2+jkMTsyuwCso90g+9n3h30NW1mG0BSgQCdxyAr4U9Viwk3FKITTKDSDjtBaoNyC+xwVe4ttXGsSwSTrzSMk0jLyg+QUdG9UAGsw3VWz7l4H3m61+alaeodqid8c8skCnqT5lmx9o1z1VWqjquHB3jV19TPeJ7+9HMjsCrR+CJDIenMWLEjOcaZXEvZlmFjvlJb75vF/5IU8ctNNdFjeglVmjXw4XUAqx5gR0OeQ9u+ovakuhQSqtzTLcQPyBHRKOqFR6t/iDrhjtbcm0eMG+d6XSFaa2TQVbQ1LOMSrLIJCQM5ACqc5xg9NaG1OJNbsLhBw1qSzNazU1NPcICOZZYJTJzZXz5fiA+WPM6C7/c9pVfC83Ft2cSailqJ5aGKhqayBkMyRK4Mg84ssB69DrTrqDZ1FYtt7S3hvDdM1TPSxVYSijiehtZnXmRSjHmkIDAtykdzjOqjarBBolWZ03Z+ET2NwG5HjD3us0dr4k8KqW0gLQW+muYoQr8yiM0wZeU+YwRj5Y0O8LdtX7a3GPe/Ee9qlutX+tvFPJMv6RHmDl8AnChVJ97GSQBpFyjddp3nPtyffsNum22ZqajqairlWJVzyEQlVYrzLg4wOnTWa+vuK/Uho7xxbtFbTZBMM1xqWjJHYlfCwTplU/L5prwtvgQlndYbu46Gv4tfk52Sj2eGuFws8kLT25SBICPFU4BIB6OrD+IdxjVf+UTT1GzPyd9jcPbrMguiSLUyUwcEx4Epc9PLmmC57EhsdtKezi7bZhdrHxNs9GSc4o6qpVvsPgjH36oJo7tujdlPBWXiW8V1XIsbVLzPK2PUs/XAGT9mrOzTRSSnmajLfHG2VhVDBNbP9mbCiLDld6aaoP/NKREn/AElj9ml5OcuTo94jVsEcC0dLhYncCMD/AIMQMafe3iN9CNL9jk6YWCzJstKzIKjzWa+SaCKpIW+tYyrQck2+9T1iDRdw5u0lHdFp0lWN5HR6d3PupOhzGT8icqfk50IayQOUkDA9tUk3wy5VQqk2I3g2I6iOvtlxFAaHMHcRcHoYP+L+1BQVVNui1QOtlvQaVFx/u04OJoG9GVs9PT6aX4bHprpDgnuDbm5tvXHaW8m/2ZcVXx5Me9SVIAWOsX0GMLJ9Ax6FtJTids667H3dWWG6w8kkLZikHVJoz8MiHzUj/LuNZ5aVJPmVWajNB+ZGh5jJXHnB0PJmm+1AoclDcrXocxwIgdDj0GPprZtVwqbVdaW50EoiqqSZJ4XwPddSCDj6jW3afBobNUXVoI56kzCCn8ReZIzylmcqehOMAA9OpOOg0yIrDE6iOe53hDhYzULU9C5KJzBfC5APEcDk5+blGfTQ3ptCe6oWNvXjBW2CbgwL7r3jte8UNc9FsCit14uDB6isFfLJFE3MGYwQ9BHzHvksACQMa3YOKEg9joqqz+0WRLAlmrLca1glRyqcVCnGI5A3KwIB+HHUE6rLFTXm81djoqa81Ec9zaUMztlU5CeoHn0B6eui2t4d7sinKU+7qEghfCWoZ45HJ5OmArAdZEGSQOuegBxxMi2pISU1A3kmnKscL6gagwvm3Ch2Au1Bb0DLdWuPtfi+8QYRH4fLj5Zznz7aseJW/rvvS91dVLPV0lsmkWSG1+2NJBAQoHug4HkT2HfRPcdhb/t8kayXqkdHmigaSOoJRJJJI0VWPL0OZAfmoJGRjO5Dw835N4T0e5KCqgcgGaOV+WPKc4Lc0YIGCvXHdgO+dNJkUlQXhvfzpX7QIzCgKVtC8l3Ej8Pqban5vQPDdZbh7Z4vVg8SR+Hy47DkznPn20V7f4k2KmhtNXuHYVFfb3ZoUhoq16+SGN1j/mhUQqCJeTyIK5AAbONE1Lw231Nb/aot1Ujl3j8HlDlJI5A3K/N4fTqFyuMqDzPygZ1p2bam/a2hpKiHdFLD7WkbQpIzDmL8xVQ3h8pOEYnBPL2OD00RWy0LHeHo56xT2sjWFRe7pV3m81l3uEglq62d55mAABdiScDyGT21p5GnReNh7+pqJ6qTdNNM0ayvJEwkXlCAMA3NGMZBPxgAYGSAy5WF6SGrtFJeEp44J5JZKeoWNQqOyhWDhR0XIfBA6ZGemddLXZ0SMo6FY7xTjr00z9gWNrHtWTc9afZ6m5q9PbmYdY4F/n6j6Ae6vqSB56xcDNh2/c1znvW6Z5KHalqAkr6hR70rfqwR/tOxIGB16+pGsvGrdouV3npKWOOmiVVgWnhIMdJAn83TrjocfE5Hd/ko1RhpM2+UK/2m6FZ36hA4q13JrvERx0so7vvq93hvV0040gA3FXi4XKWdE8OLosUefgQDCr9gA1V69Y5OvNFmX1PuKcVmYq02G0BKchE1NTU0CCRc7YvVVZrlDW0knJLGcjIyCPMEHoQR0IPcac0u4Nv792olnv6MtLSrmkqk9+os5PcdeslKT5dSnQHoAwQIONb9quVTQVKVFNM8UqHKspwQdOpLE00JeZBoLpI95J3j8g2IsYWUlxpfasm+oOShuP4IuD4QSXaz1mzpai136iFfZ67leGqppBysRnklifBGcMwKnuCR6MJNutHRV/OUxdMcs5s8Hi5C8qsW8Tq4Xpzd/nq7sG7aWppWoapKaOKX+dpZ0zSTH1AAJhb5qCuevKO+sF22Na69lks1Z+bKiXqlJWuDHIf6qYZVvvJ9cazpvZzsuO0eGJHzpFR+oXKDvrbiYbYmkOnCjuq+U59Dkocr7wIE1qrei0qx3i5x+yEmBko0VkJOcgiTOc6lRLa6qoeoqr3dZZnOWdqNSSfmfF1L3tTcFlY/nG1VMKeUgTmjP8QyNVUcRY9BnRWSFiqDURVwFJooUi4U2QjDXq6kdP8AwKnt2/pdZ4v5PAEG+3dQe4FuXr/3tV9JbpZvhQn7NSpt8sRwyEfZrSSy6lOKloTU42ThrF7TSbUUYk3FfV+S2tD3GD/T+ms3tO04Xjkp9ybgDxMGjItaDkYHII/T9DnroRML8/IqksewA6nV7atl7gr4/HNEaOl7tUVZ8JAPXr1P3aE9P9invkCCNyvaHugmJWzbfnneV75fZ2kYtIWoUBcnuSTMep+eru1WKO+xUs9Wkll2xSEiIt+kqKp2I5uUAe/I2AOgwAAADjW3bbBt+yQCtmaO6SqelRUgx0an90fFMf8AlBH01U7l3jNPK/sc0jSFSntLqFZVPdY1HSJfplj5k9tATKPzNHHCW2/mI7x+hOf6lWHGCGYba7iAFq3DIfUr8C/KL/eu8hSUFPZbXEtDTUQIpKKJsrSk9DI5HxznJyeoTJxk5OlbNI0jlmOSdeSyM7Ek51j0R11tLYYYThQnIcTmSdSdTFUNqKi44aqOZ+wA0A0H5iampqaUg0TU1NTUiRNTU1NSJH2kjKcg6ubRuGvoFaOGc+C/xwuA8b/VTkH7tUeppqXnHZdWJtVIC6w26MKxUQz9u8QpKJQqtVUY/ZpZeaL+6kDL93LowoN6bTuJH53se2K8nu1VbHp5D9XhZh+GkErkees0dQ69mOmu2kX1YpiXSVbxVJ8UkQEszCE4WnlAbrKHgoHyjrrY9x4ONUxyVGzduxNnqwvdUFH8LRa097XvhLDO5otl7XLAn3pbnVzD+yIwPx1y5Bcp4/hkYfbr5nuM0h95yft1rKm9mGX7LAum7tF0+9fOMsSE2H+17QV34EV+0OG58QLRSBltVLbLcOwFrtaRn+8lZj/06Cb1vaepl8SOEPID7s1W5qHX5gN7i/Yo0EvOzdzrGWJ1kpm5eWVilWUoO+lVfuVU+cahl3XRR9xShuJoPAUHlG/c7rWV8xmq6iWaQ92diT+OtBmJPXXzqaRemHHlYlmphlDaWxRIoImpqamgxeJqampqRI//2Q==" alt="Logo Meu Mundo Cripto" class="w-10 h-10 rounded-full">
-                <span class="text-xl font-bold tracking-wider text-white">MEU MUNDO <span class="text-brandGold">CRIPTO</span></span>
-            </div>
-            
-            <div class="hidden md:flex space-x-8 text-sm font-medium">
-                <a href="#modulos" class="hover:text-brandBlue transition">Módulos</a>
-                <a href="#artigos" class="hover:text-brandBlue transition">Artigos e Aulas</a>
-                <a href="#geopolitica" class="hover:text-brandGold transition">Geopolítica</a>
-                <a href="#autocustodia" class="hover:text-brandBlue transition">Auto-Custódia</a>
-            </div>
-
-            <a href="https://www.instagram.com/meu.mundocripto" target="_blank" class="px-5 py-2 rounded-full border border-brandGold/40 text-brandGold hover:bg-brandGold hover:text-black font-semibold text-sm transition glow-gold">
-                <i class="fa-brands fa-instagram mr-2"></i>Siga no Insta
+            <a href="#" class="flex items-center space-x-3">
+                <img src="logo-circle.png" alt="Meu Mundo Cripto" class="w-10 h-10 rounded-full object-cover shrink-0 border border-brandBlue/30" />
+                <span class="font-bold text-white text-sm tracking-wide hidden sm:inline">MEU MUNDO <span class="text-brandGold">CRIPTO</span></span>
             </a>
+
+            <div class="hidden md:flex items-center space-x-6 text-sm font-medium text-slate-300">
+                <a href="#modulos" class="hover:text-brandBlue transition">Módulos</a>
+                <a href="#artigos" class="hover:text-brandBlue transition">Estudos</a>
+                <a href="#mercado" class="hover:text-brandBlue transition">Mercado</a>
+                <a href="#calculadoras" class="hover:text-brandBlue transition">Calculadoras</a>
+                <a href="#geopolitica" class="hover:text-brandBlue transition">Geopolítica</a>
+                <a href="#autocustodia" class="hover:text-brandBlue transition">Auto-Custódia</a>
+                <a href="#trilha" class="hover:text-brandBlue transition">Trilha</a>
+                <a href="#faq" class="hover:text-brandBlue transition">FAQ</a>
+                <a href="https://www.instagram.com/meu.mundocripto" target="_blank" rel="noopener" class="px-4 py-2 bg-gradient-to-r from-brandBlue to-blue-600 rounded-full text-white text-xs font-bold hover:opacity-90 transition">
+                    <i class="fa-brands fa-instagram"></i> Siga no Insta
+                </a>
+            </div>
+            <button type="button" id="nav-toggle" class="md:hidden w-10 h-10 flex items-center justify-center rounded-lg border border-white/10 text-slate-300 hover:text-white" aria-label="Menu">
+                <i class="fa-solid fa-bars text-lg" id="nav-toggle-icon"></i>
+            </button>
+
+        </div>
+        <div id="mobile-menu" class="hidden md:hidden border-t border-slate-800 bg-brandDark/95 backdrop-blur-lg">
+            <div class="max-w-7xl mx-auto px-6 py-4 flex flex-col gap-3 text-sm font-medium text-slate-300">
+                <a href="#modulos" class="mobile-link py-2 hover:text-brandBlue">Módulos</a>
+                <a href="#artigos" class="mobile-link py-2 hover:text-brandBlue">Estudos</a>
+                <a href="#mercado" class="mobile-link py-2 hover:text-brandBlue">Mercado</a>
+                <a href="#calculadoras" class="mobile-link py-2 hover:text-brandBlue">Calculadoras</a>
+                <a href="#geopolitica" class="mobile-link py-2 hover:text-brandBlue">Geopolítica</a>
+                <a href="#autocustodia" class="mobile-link py-2 hover:text-brandBlue">Auto-Custódia</a>
+                <a href="#trilha" class="mobile-link py-2 hover:text-brandBlue">Trilha</a>
+                <a href="#faq" class="mobile-link py-2 hover:text-brandBlue">FAQ</a>
+                <a href="https://www.instagram.com/meu.mundocripto" target="_blank" rel="noopener" class="py-2 text-brandBlue"><i class="fa-brands fa-instagram"></i> Instagram</a>
+            </div>
         </div>
     </nav>
 
     <!-- Hero Section -->
     <section class="min-h-screen pt-32 pb-20 flex items-center justify-center relative overflow-hidden">
+        <!-- Globo leve (canvas) -->
+        <canvas id="hero-globe" class="absolute inset-0 w-full h-full pointer-events-none" style="z-index:0; opacity:0.9;" aria-hidden="true"></canvas>
         <!-- Glows de Fundo -->
-        <div class="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-brandBlue/10 rounded-full blur-[120px] -z-10"></div>
-        <div class="absolute bottom-10 right-10 w-[300px] h-[300px] bg-brandGold/10 rounded-full blur-[100px] -z-10"></div>
+        <div class="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-brandBlue/10 rounded-full blur-[120px] pointer-events-none" style="z-index:0;"></div>
+        <div class="absolute bottom-10 right-10 w-[300px] h-[300px] bg-brandGold/10 rounded-full blur-[100px] pointer-events-none" style="z-index:0;"></div>
 
-        <div class="max-w-4xl mx-auto text-center px-6" data-aos="fade-up">
+        <div class="max-w-4xl mx-auto text-center px-6 relative" style="z-index:1;" data-aos="fade-up">
             <span class="px-4 py-1.5 rounded-full border border-brandBlue/30 bg-brandBlue/10 text-brandBlue text-xs font-semibold uppercase tracking-widest mb-6 inline-block">
                 Educação Financeira Sem Filtros
             </span>
@@ -174,7 +233,7 @@
                     <span class="inline-flex items-center justify-center bg-white text-black text-xs font-bold rounded px-3 py-2"><i class="fa-solid fa-play mr-2"></i>Estudar agora</span>
                 </div>
             </a>
-            <a href="#artigo-cripto" class="poster group relative shrink-0 snap-start w-40 sm:w-48 md:w-56 aspect-[2/3] rounded-xl overflow-hidden border border-white/10 bg-brandCard" aria-label="Estudar Criptomoedas">
+            <a href="#artigo-bitcoin" class="poster group relative shrink-0 snap-start w-40 sm:w-48 md:w-56 aspect-[2/3] rounded-xl overflow-hidden border border-white/10 bg-brandCard" aria-label="Estudar Criptomoedas">
                 <img src="data:image/jpeg;base64,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" alt="Capa do módulo Criptomoedas" class="w-full h-full object-cover" width="400" height="600">
                 <span class="md:hidden absolute bottom-2 right-2 w-8 h-8 rounded-full bg-white text-black flex items-center justify-center text-xs"><i class="fa-solid fa-play ml-0.5"></i></span>
                 <div class="hidden md:flex absolute inset-x-0 bottom-0 p-4 flex-col gap-2 bg-gradient-to-t from-black via-black/85 to-transparent opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition">
@@ -227,8 +286,14 @@
                 <button role="tab" id="tab-rendavariavel" data-target="artigo-rendavariavel" aria-controls="artigo-rendavariavel" aria-selected="false" tabindex="-1" class="tab-btn tab-gold shrink-0 px-5 py-3 rounded-xl text-sm font-semibold whitespace-nowrap">
                     <i class="fa-solid fa-chart-line mr-2"></i>Renda Variável
                 </button>
-                <button role="tab" id="tab-cripto" data-target="artigo-cripto" aria-controls="artigo-cripto" aria-selected="false" tabindex="-1" class="tab-btn tab-blue shrink-0 px-5 py-3 rounded-xl text-sm font-semibold whitespace-nowrap">
-                    <i class="fa-brands fa-bitcoin mr-2"></i>Criptomoedas
+                <button role="tab" id="tab-bitcoin" data-target="artigo-bitcoin" aria-controls="artigo-bitcoin" aria-selected="false" tabindex="-1" class="tab-btn tab-blue shrink-0 px-5 py-3 rounded-xl text-sm font-semibold whitespace-nowrap">
+                    <i class="fa-brands fa-bitcoin mr-2"></i>Bitcoin
+                </button>
+                <button role="tab" id="tab-blockchain" data-target="artigo-blockchain" aria-controls="artigo-blockchain" aria-selected="false" tabindex="-1" class="tab-btn tab-blue shrink-0 px-5 py-3 rounded-xl text-sm font-semibold whitespace-nowrap">
+                    <i class="fa-solid fa-link mr-2"></i>Blockchain
+                </button>
+                <button role="tab" id="tab-altcoins" data-target="artigo-altcoins" aria-controls="artigo-altcoins" aria-selected="false" tabindex="-1" class="tab-btn tab-blue shrink-0 px-5 py-3 rounded-xl text-sm font-semibold whitespace-nowrap">
+                    <i class="fa-solid fa-coins mr-2"></i>Outras Criptos
                 </button>
                 <button role="tab" id="tab-sistema" data-target="artigo-sistema" aria-controls="artigo-sistema" aria-selected="false" tabindex="-1" class="tab-btn tab-gold shrink-0 px-5 py-3 rounded-xl text-sm font-semibold whitespace-nowrap">
                     <i class="fa-solid fa-globe mr-2"></i>Sistema Financeiro
@@ -257,7 +322,30 @@
                 <div class="mt-8 pt-6 border-t border-slate-800 flex justify-end">
                     <button type="button" data-go="artigo-politica" class="px-6 py-3 rounded-xl border border-brandGold/40 text-brandGold hover:bg-brandGold hover:text-black font-semibold text-sm transition">Próximo módulo: Política Monetária <i class="fa-solid fa-arrow-right ml-2"></i></button>
                 </div>
-            </article>
+            
+                <!-- QUIZ INTERATIVO -->
+                <div class="mt-10 pt-8 border-t border-white/10" id="quiz-fundamentos-wrap">
+                    <h4 class="text-white font-bold text-lg mb-1 flex items-center gap-2">
+                        <i class="fa-solid fa-graduation-cap text-brandGold"></i> Quiz — Fundamentos Financeiros
+                    </h4>
+                    <p class="text-slate-500 text-sm mb-5">Responda e receba feedback imediato. Teste o que aprendeu neste módulo.</p>
+                    <div id="quiz-fundamentos-container">
+                        <p class="font-medium text-white mb-3" id="quiz-fundamentos-question"></p>
+                        <div class="space-y-2" id="quiz-fundamentos-options"></div>
+                        <div id="quiz-fundamentos-feedback" class="hidden mt-4 p-4 rounded-xl text-sm"></div>
+                        <div class="flex items-center justify-between mt-5">
+                            <span class="text-xs text-slate-500" id="quiz-fundamentos-progress"></span>
+                            <button type="button" id="quiz-fundamentos-next" class="hidden px-5 py-2 rounded-xl bg-brandGold/20 border border-brandGold/40 text-brandGold text-sm font-semibold hover:bg-brandGold hover:text-black transition">Próxima →</button>
+                        </div>
+                    </div>
+                    <div id="quiz-fundamentos-result" class="hidden text-center py-8">
+                        <div class="text-4xl mb-3">🎯</div>
+                        <h4 class="text-xl font-bold text-white mb-2">Módulo concluído!</h4>
+                        <p class="text-slate-400 mb-1">Você acertou <span id="quiz-fundamentos-score" class="text-brandGold font-bold">0</span> de <span id="quiz-fundamentos-total">3</span>.</p>
+                        <p class="text-slate-500 text-sm">Continue para o próximo módulo da trilha.</p>
+                    </div>
+                </div>
+</article>
 
             <!-- Artigo 1: Política Monetária (EXPANDIDO) -->
             <article id="artigo-politica" role="tabpanel" aria-labelledby="tab-politica" class="glass-card p-8 rounded-2xl" hidden>
@@ -329,12 +417,12 @@
 <details class="group rounded-xl border border-white/10 bg-brandDark/60 mb-3"><summary class="cursor-pointer list-none flex items-center justify-between gap-3 px-4 py-3 font-semibold text-white"><span><i class="fa-solid fa-calculator mr-3 text-brandGold"></i>Juros compostos: simule você mesmo</span><i class="fa-solid fa-chevron-down text-xs text-slate-500 transition group-open:rotate-180"></i></summary><div class="px-4 pb-4 text-slate-300 text-sm leading-relaxed space-y-3"><p><strong>Exemplo:</strong> se você investir <strong>R$ 10.000</strong> a <strong>13% ao ano</strong> durante <strong>3 anos</strong>, terá cerca de <strong>R$ 14.428,97</strong> antes do imposto. Isso dá R$ 4.428,97 só de juros, porque cada ano rende sobre o valor já acumulado.</p>
 <p>Mude os valores abaixo e veja na hora:</p>
 <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
-<label class="text-xs text-slate-400">Valor inicial (R$)<input id="jc-i" type="number" min="0" value="10000" class="mt-1 w-full rounded-lg bg-black/40 border border-slate-700 p-2 text-white"></label>
-<label class="text-xs text-slate-400">Aporte mensal (R$)<input id="jc-v" type="number" min="0" value="0" class="mt-1 w-full rounded-lg bg-black/40 border border-slate-700 p-2 text-white"></label>
-<label class="text-xs text-slate-400">Taxa ao ano (%)<input id="jc-r" type="number" min="0" step="0.5" value="13" class="mt-1 w-full rounded-lg bg-black/40 border border-slate-700 p-2 text-white"></label>
-<label class="text-xs text-slate-400">Prazo (anos)<input id="jc-t" type="number" min="1" value="3" class="mt-1 w-full rounded-lg bg-black/40 border border-slate-700 p-2 text-white"></label>
+<label class="text-xs text-slate-400">Valor inicial (R$)<input id="jc-mod-i" type="number" min="0" value="10000" class="mt-1 w-full rounded-lg bg-black/40 border border-slate-700 p-2 text-white"></label>
+<label class="text-xs text-slate-400">Aporte mensal (R$)<input id="jc-mod-v" type="number" min="0" value="0" class="mt-1 w-full rounded-lg bg-black/40 border border-slate-700 p-2 text-white"></label>
+<label class="text-xs text-slate-400">Taxa ao ano (%)<input id="jc-mod-r" type="number" min="0" step="0.5" value="13" class="mt-1 w-full rounded-lg bg-black/40 border border-slate-700 p-2 text-white"></label>
+<label class="text-xs text-slate-400">Prazo (anos)<input id="jc-mod-t" type="number" min="1" value="3" class="mt-1 w-full rounded-lg bg-black/40 border border-slate-700 p-2 text-white"></label>
 </div>
-<div id="jc-out" class="p-3 rounded-lg bg-black/40 border border-brandGold/30 text-slate-200 space-y-1"></div>
+<div id="jc-mod-out" class="p-3 rounded-lg bg-black/40 border border-brandGold/30 text-slate-200 space-y-1"></div>
 <p class="text-xs text-slate-500">Simulação ilustrativa: a taxa de 13% é só um exemplo, e a Selic muda ao longo do tempo. O imposto estimado segue a tabela regressiva da renda fixa e só é calculado quando não há aportes. Rentabilidade não é garantida.</p></div></details>
 <details class="group rounded-xl border border-white/10 bg-brandDark/60 mb-3"><summary class="cursor-pointer list-none flex items-center justify-between gap-3 px-4 py-3 font-semibold text-white"><span><i class="fa-solid fa-list-check mr-3 text-brandGold"></i>Checklist: você saiu sabendo?</span><i class="fa-solid fa-chevron-down text-xs text-slate-500 transition group-open:rotate-180"></i></summary><div class="px-4 pb-4 text-slate-300 text-sm leading-relaxed space-y-3"><ul class="list-disc pl-5 space-y-1 text-slate-400"><li>Explicar o que é inflação e o que é IPCA</li><li>Dizer quem define a Selic e de quanto em quanto tempo</li><li>Entender por que juros altos esfriam a economia</li><li>Calcular o retorno real de um investimento</li></ul></div></details>
 <div class="mt-8 pt-6 border-t border-slate-800 flex justify-end">
@@ -342,7 +430,30 @@
                         Próximo módulo: Renda Fixa <i class="fa-solid fa-arrow-right ml-2"></i>
                     </button>
                 </div>
-            </article>
+            
+                <!-- QUIZ INTERATIVO -->
+                <div class="mt-10 pt-8 border-t border-white/10" id="quiz-politica-wrap">
+                    <h4 class="text-white font-bold text-lg mb-1 flex items-center gap-2">
+                        <i class="fa-solid fa-graduation-cap text-brandGold"></i> Quiz — Política Monetária
+                    </h4>
+                    <p class="text-slate-500 text-sm mb-5">Responda e receba feedback imediato. Teste o que aprendeu neste módulo.</p>
+                    <div id="quiz-politica-container">
+                        <p class="font-medium text-white mb-3" id="quiz-politica-question"></p>
+                        <div class="space-y-2" id="quiz-politica-options"></div>
+                        <div id="quiz-politica-feedback" class="hidden mt-4 p-4 rounded-xl text-sm"></div>
+                        <div class="flex items-center justify-between mt-5">
+                            <span class="text-xs text-slate-500" id="quiz-politica-progress"></span>
+                            <button type="button" id="quiz-politica-next" class="hidden px-5 py-2 rounded-xl bg-brandGold/20 border border-brandGold/40 text-brandGold text-sm font-semibold hover:bg-brandGold hover:text-black transition">Próxima →</button>
+                        </div>
+                    </div>
+                    <div id="quiz-politica-result" class="hidden text-center py-8">
+                        <div class="text-4xl mb-3">🎯</div>
+                        <h4 class="text-xl font-bold text-white mb-2">Módulo concluído!</h4>
+                        <p class="text-slate-400 mb-1">Você acertou <span id="quiz-politica-score" class="text-brandGold font-bold">0</span> de <span id="quiz-politica-total">3</span>.</p>
+                        <p class="text-slate-500 text-sm">Continue para o próximo módulo da trilha.</p>
+                    </div>
+                </div>
+</article>
 
             <!-- Artigo 2: Renda Fixa -->
             <article id="artigo-rendafixa" role="tabpanel" aria-labelledby="tab-rendafixa" class="glass-card p-8 rounded-2xl" hidden>
@@ -368,7 +479,30 @@
                         Próximo módulo: Renda Variável <i class="fa-solid fa-arrow-right ml-2"></i>
                     </button>
                 </div>
-            </article>
+            
+                <!-- QUIZ INTERATIVO -->
+                <div class="mt-10 pt-8 border-t border-white/10" id="quiz-rendafixa-wrap">
+                    <h4 class="text-white font-bold text-lg mb-1 flex items-center gap-2">
+                        <i class="fa-solid fa-graduation-cap text-brandGold"></i> Quiz — Renda Fixa
+                    </h4>
+                    <p class="text-slate-500 text-sm mb-5">Responda e receba feedback imediato. Teste o que aprendeu neste módulo.</p>
+                    <div id="quiz-rendafixa-container">
+                        <p class="font-medium text-white mb-3" id="quiz-rendafixa-question"></p>
+                        <div class="space-y-2" id="quiz-rendafixa-options"></div>
+                        <div id="quiz-rendafixa-feedback" class="hidden mt-4 p-4 rounded-xl text-sm"></div>
+                        <div class="flex items-center justify-between mt-5">
+                            <span class="text-xs text-slate-500" id="quiz-rendafixa-progress"></span>
+                            <button type="button" id="quiz-rendafixa-next" class="hidden px-5 py-2 rounded-xl bg-brandGold/20 border border-brandGold/40 text-brandGold text-sm font-semibold hover:bg-brandGold hover:text-black transition">Próxima →</button>
+                        </div>
+                    </div>
+                    <div id="quiz-rendafixa-result" class="hidden text-center py-8">
+                        <div class="text-4xl mb-3">🎯</div>
+                        <h4 class="text-xl font-bold text-white mb-2">Módulo concluído!</h4>
+                        <p class="text-slate-400 mb-1">Você acertou <span id="quiz-rendafixa-score" class="text-brandGold font-bold">0</span> de <span id="quiz-rendafixa-total">3</span>.</p>
+                        <p class="text-slate-500 text-sm">Continue para o próximo módulo da trilha.</p>
+                    </div>
+                </div>
+</article>
 
             <!-- Artigo 3: Renda Variável -->
             <article id="artigo-rendavariavel" role="tabpanel" aria-labelledby="tab-rendavariavel" class="glass-card p-8 rounded-2xl" hidden>
@@ -389,32 +523,347 @@
 <details class="group rounded-xl border border-white/10 bg-brandDark/60 mb-3"><summary class="cursor-pointer list-none flex items-center justify-between gap-3 px-4 py-3 font-semibold text-white"><span><i class="fa-solid fa-triangle-exclamation mr-3 text-brandGold"></i>Riscos e erros comuns</span><i class="fa-solid fa-chevron-down text-xs text-slate-500 transition group-open:rotate-180"></i></summary><div class="px-4 pb-4 text-slate-300 text-sm leading-relaxed space-y-3"><ul class="list-disc pl-5 space-y-1 text-slate-400"><li>Investir a reserva de emergência em ações</li><li>Comprar por dica de rede social sem estudar a empresa</li><li>Colocar todo o dinheiro em um só ativo</li><li>Vender no pânico quando o mercado cai</li><li>Esperar retorno rápido: renda variável funciona melhor no longo prazo</li></ul></div></details>
 <details class="group rounded-xl border border-white/10 bg-brandDark/60 mb-3"><summary class="cursor-pointer list-none flex items-center justify-between gap-3 px-4 py-3 font-semibold text-white"><span><i class="fa-solid fa-list-check mr-3 text-brandGold"></i>Checklist: você saiu sabendo?</span><i class="fa-solid fa-chevron-down text-xs text-slate-500 transition group-open:rotate-180"></i></summary><div class="px-4 pb-4 text-slate-300 text-sm leading-relaxed space-y-3"><ul class="list-disc pl-5 space-y-1 text-slate-400"><li>Diferenciar ação, FII e ETF pelo que cada um é</li><li>Abrir conta e enviar uma ordem de compra</li><li>Ler o ticker (3, 4 ou 11) e saber o que é lote fracionário</li><li>Citar P/L, P/VP e Dividend Yield e comparar empresas do mesmo setor</li><li>Saber quais impostos incidem sobre cada um</li></ul></div></details>
 <div class="mt-8 pt-6 border-t border-slate-800 flex justify-end">
-                    <button type="button" data-go="artigo-cripto" class="px-6 py-3 rounded-xl border border-brandBlue/40 text-brandBlue hover:bg-brandBlue hover:text-black font-semibold text-sm transition">
+                    <button type="button" data-go="artigo-bitcoin" class="px-6 py-3 rounded-xl border border-brandBlue/40 text-brandBlue hover:bg-brandBlue hover:text-black font-semibold text-sm transition">
                         Próximo módulo: Criptomoedas <i class="fa-solid fa-arrow-right ml-2"></i>
                     </button>
                 </div>
-            </article>
-
-            <!-- Artigo 4: Criptomoedas e Bitcoin -->
-            <article id="artigo-cripto" role="tabpanel" aria-labelledby="tab-cripto" class="glass-card p-8 rounded-2xl" hidden>
-                <span class="text-brandBlue text-xs font-bold uppercase tracking-wider">Módulo 05 • Liberdade e Inovação</span>
-                <h3 class="text-2xl font-bold text-white mt-2 mb-4">Criptomoedas & Bitcoin: A Revolução da Descentralização</h3>
-                <div class="text-slate-300 space-y-4 text-sm md:text-base leading-relaxed">
-                    <p>O Bitcoin surgiu em 2008 como a primeira moeda digital verdadeiramente escassa, descentralizada e auditável do mundo, resolvendo o problema do gasto duplo sem a necessidade de um intermediário central (como um banco ou governo).</p>
-                    <p>A rede funciona através da tecnologia <strong>Blockchain</strong>, um livro de registros imutável e transparente mantido por computadores ao redor do planeta.</p>
-                    <div class="p-4 bg-brandDark rounded-xl border border-brandBlue/30 my-4">
-                        <strong class="text-brandBlue">Escassez Absoluta:</strong> Existirão apenas 21 milhões de Bitcoins no mundo. Diferente das moedas estatais, nenhum político ou instituição pode emitir mais Bitcoins arbitrariamente.
+            
+                <!-- QUIZ INTERATIVO -->
+                <div class="mt-10 pt-8 border-t border-white/10" id="quiz-rendavariavel-wrap">
+                    <h4 class="text-white font-bold text-lg mb-1 flex items-center gap-2">
+                        <i class="fa-solid fa-graduation-cap text-brandGold"></i> Quiz — Renda Variável
+                    </h4>
+                    <p class="text-slate-500 text-sm mb-5">Responda e receba feedback imediato. Teste o que aprendeu neste módulo.</p>
+                    <div id="quiz-rendavariavel-container">
+                        <p class="font-medium text-white mb-3" id="quiz-rendavariavel-question"></p>
+                        <div class="space-y-2" id="quiz-rendavariavel-options"></div>
+                        <div id="quiz-rendavariavel-feedback" class="hidden mt-4 p-4 rounded-xl text-sm"></div>
+                        <div class="flex items-center justify-between mt-5">
+                            <span class="text-xs text-slate-500" id="quiz-rendavariavel-progress"></span>
+                            <button type="button" id="quiz-rendavariavel-next" class="hidden px-5 py-2 rounded-xl bg-brandGold/20 border border-brandGold/40 text-brandGold text-sm font-semibold hover:bg-brandGold hover:text-black transition">Próxima →</button>
+                        </div>
+                    </div>
+                    <div id="quiz-rendavariavel-result" class="hidden text-center py-8">
+                        <div class="text-4xl mb-3">🎯</div>
+                        <h4 class="text-xl font-bold text-white mb-2">Módulo concluído!</h4>
+                        <p class="text-slate-400 mb-1">Você acertou <span id="quiz-rendavariavel-score" class="text-brandGold font-bold">0</span> de <span id="quiz-rendavariavel-total">3</span>.</p>
+                        <p class="text-slate-500 text-sm">Continue para o próximo módulo da trilha.</p>
                     </div>
                 </div>
+</article>
+
+            <!-- Artigo 4: Criptomoedas e Bitcoin -->
             
-                <h4 class="text-white font-semibold pt-6 pb-2">Aulas do módulo <span class="text-slate-500 text-xs font-normal">(toque para abrir)</span></h4><details class="group rounded-xl border border-white/10 bg-brandDark/60 mb-3"><summary class="cursor-pointer list-none flex items-center justify-between gap-3 px-4 py-3 font-semibold text-white"><span><i class="fa-solid fa-coins mr-3 text-brandBlue"></i>Bitcoin, altcoins e stablecoins</span><i class="fa-solid fa-chevron-down text-xs text-slate-500 transition group-open:rotate-180"></i></summary><div class="px-4 pb-4 text-slate-300 text-sm leading-relaxed space-y-3"><ul class="list-disc pl-5 space-y-1 text-slate-400"><li><strong>Bitcoin:</strong> a primeira e maior criptomoeda, com oferta máxima de 21 milhões de unidades.</li><li><strong>Altcoins:</strong> todas as outras (ex.: Ethereum). Em geral, são mais arriscadas e voláteis.</li><li><strong>Stablecoins:</strong> buscam acompanhar o valor de uma moeda (ex.: o dólar). Servem para transferir valor, mas também têm riscos, como o emissor não conseguir honrar o resgate.</li></ul></div></details>
-<details class="group rounded-xl border border-white/10 bg-brandDark/60 mb-3"><summary class="cursor-pointer list-none flex items-center justify-between gap-3 px-4 py-3 font-semibold text-white"><span><i class="fa-solid fa-shield-halved mr-3 text-brandBlue"></i>Como comprar com segurança</span><i class="fa-solid fa-chevron-down text-xs text-slate-500 transition group-open:rotate-180"></i></summary><div class="px-4 pb-4 text-slate-300 text-sm leading-relaxed space-y-3"><ol class="list-decimal pl-5 space-y-2"><li>Escolha uma <strong>exchange</strong> com boa reputação e que cumpra as regras no Brasil.</li><li>Faça o cadastro (KYC) e ative a <strong>verificação em 2 etapas</strong>.</li><li>Compre por Pix e comece com valor pequeno, que você aceite perder.</li><li>Para quantias maiores, passe para a <strong>auto-custódia</strong> (veja a seção abaixo) e guarde a seed phrase offline.</li><li><strong>Desconfie</strong> de qualquer promessa de retorno garantido ou de quem pede sua seed phrase.</li></ol></div></details>
-<details class="group rounded-xl border border-white/10 bg-brandDark/60 mb-3"><summary class="cursor-pointer list-none flex items-center justify-between gap-3 px-4 py-3 font-semibold text-white"><span><i class="fa-solid fa-receipt mr-3 text-brandBlue"></i>Riscos e imposto</span><i class="fa-solid fa-chevron-down text-xs text-slate-500 transition group-open:rotate-180"></i></summary><div class="px-4 pb-4 text-slate-300 text-sm leading-relaxed space-y-3"><ul class="list-disc pl-5 space-y-1 text-slate-400"><li>A volatilidade é alta: quedas de 50% ou mais já aconteceram.</li><li>Golpes são comuns (pirâmides, perfis falsos, suporte falso).</li><li>No Brasil, o ganho de capital na venda tem regras próprias de isenção e de declaração, que mudam com frequência. Consulte a Receita Federal antes de operar volumes relevantes.</li></ul><p class="text-xs text-slate-500">Regras e alíquotas podem mudar. Confirme sempre na corretora, na B3 ou na Receita Federal. Conteúdo educacional, não é recomendação de investimento.</p></div></details>
-<details class="group rounded-xl border border-white/10 bg-brandDark/60 mb-3"><summary class="cursor-pointer list-none flex items-center justify-between gap-3 px-4 py-3 font-semibold text-white"><span><i class="fa-solid fa-list-check mr-3 text-brandBlue"></i>Checklist: você saiu sabendo?</span><i class="fa-solid fa-chevron-down text-xs text-slate-500 transition group-open:rotate-180"></i></summary><div class="px-4 pb-4 text-slate-300 text-sm leading-relaxed space-y-3"><ul class="list-disc pl-5 space-y-1 text-slate-400"><li>Diferenciar Bitcoin, altcoin e stablecoin</li><li>Explicar por que a seed phrase nunca deve ser compartilhada</li><li>Reconhecer sinais de golpe</li><li>Entender que cripto vem depois da reserva de emergência</li></ul></div></details>
-<div class="mt-8 pt-6 border-t border-slate-800 flex justify-end">
-                    <button type="button" data-go="artigo-sistema" class="px-6 py-3 rounded-xl border border-brandBlue/40 text-brandBlue hover:bg-brandBlue hover:text-black font-semibold text-sm transition">Próximo módulo: Sistema Financeiro <i class="fa-solid fa-arrow-right ml-2"></i></button>
+            <!-- ========== BITCOIN ========== -->
+            <article id="artigo-bitcoin" role="tabpanel" aria-labelledby="tab-bitcoin" class="glass-card p-8 rounded-2xl" hidden>
+                <span class="text-brandBlue text-xs font-bold uppercase tracking-wider">Módulo 05A • A Primeira Criptomoeda</span>
+                <h3 class="text-2xl font-bold text-white mt-2 mb-4">Bitcoin: Escassez Matemática e Soberania</h3>
+                <p class="text-slate-300 leading-relaxed mb-6">
+                    Em 2008, sob o pseudônimo Satoshi Nakamoto, foi publicado o whitepaper do Bitcoin. Em 2009 a rede entrou no ar. Pela primeira vez na história surgiu um dinheiro digital com oferta limitada, sem emissores centrais e verificável por qualquer pessoa.
+                </p>
+
+                <h4 class="text-white font-semibold pt-4 pb-2">Aulas do módulo <span class="text-slate-500 text-xs font-normal">(toque para abrir)</span></h4>
+
+                <details class="group rounded-xl border border-white/10 bg-brandDark/60 mb-3" open>
+                    <summary class="cursor-pointer list-none flex items-center justify-between gap-3 px-4 py-3 font-semibold text-white">
+                        <span><i class="fa-solid fa-book-open mr-3 text-brandGold"></i>Origem e whitepaper</span>
+                        <i class="fa-solid fa-chevron-down text-xs text-slate-500 transition group-open:rotate-180"></i>
+                    </summary>
+                    <div class="px-4 pb-4 text-slate-300 text-sm leading-relaxed space-y-3">
+                        <p>O whitepaper “Bitcoin: A Peer-to-Peer Electronic Cash System” propõe dinheiro eletrônico sem intermediários confiáveis. Resolve o problema do gasto duplo com prova de trabalho (Proof of Work) e uma cadeia de blocos pública.</p>
+                        <ul class="list-disc pl-5 space-y-1 text-slate-400">
+                            <li><strong>3 de janeiro de 2009:</strong> bloco gênese minerado.</li>
+                            <li>Mensagem no bloco gênese cita crise bancária de 2008 — sinal político claro.</li>
+                            <li>Ninguém controla a emissão: as regras estão no código e na maioria dos nós honestos.</li>
+                        </ul>
+                    </div>
+                </details>
+
+                <details class="group rounded-xl border border-white/10 bg-brandDark/60 mb-3">
+                    <summary class="cursor-pointer list-none flex items-center justify-between gap-3 px-4 py-3 font-semibold text-white">
+                        <span><i class="fa-solid fa-hammer mr-3 text-brandGold"></i>Proof of Work (PoW)</span>
+                        <i class="fa-solid fa-chevron-down text-xs text-slate-500 transition group-open:rotate-180"></i>
+                    </summary>
+                    <div class="px-4 pb-4 text-slate-300 text-sm leading-relaxed space-y-3">
+                        <p>Mineradores competem para encontrar um número (nonce) que faça o hash do bloco ficar abaixo de um alvo. Quem acerta publica o bloco e recebe a recompensa + taxas.</p>
+                        <ul class="list-disc pl-5 space-y-1 text-slate-400">
+                            <li><strong>Segurança:</strong> reescrever o histórico exige refazer o trabalho de todos os blocos seguintes — custo energético e econômico enorme.</li>
+                            <li><strong>Ajuste de dificuldade:</strong> a cada 2016 blocos a rede calibra a dificuldade para manter ~10 minutos por bloco.</li>
+                            <li><strong>Energia:</strong> o gasto energético é a âncora física da escassez digital.</li>
+                        </ul>
+                    </div>
+                </details>
+
+                <details class="group rounded-xl border border-white/10 bg-brandDark/60 mb-3">
+                    <summary class="cursor-pointer list-none flex items-center justify-between gap-3 px-4 py-3 font-semibold text-white">
+                        <span><i class="fa-solid fa-chart-pie mr-3 text-brandGold"></i>Escassez e Halving</span>
+                        <i class="fa-solid fa-chevron-down text-xs text-slate-500 transition group-open:rotate-180"></i>
+                    </summary>
+                    <div class="px-4 pb-4 text-slate-300 text-sm leading-relaxed space-y-3">
+                        <p>Só existirão <strong>21 milhões</strong> de bitcoins. A cada 210.000 blocos (~4 anos) a recompensa do minerador é cortada pela metade (halving).</p>
+                        <ul class="list-disc pl-5 space-y-1 text-slate-400">
+                            <li>2009: 50 BTC por bloco → 2012: 25 → 2016: 12,5 → 2020: 6,25 → 2024: 3,125…</li>
+                            <li>Emissão previsível e desinflacionária — o oposto das moedas fiduciárias.</li>
+                            <li>Último satoshi estimado para ~2140.</li>
+                        </ul>
+                    </div>
+                </details>
+
+                <details class="group rounded-xl border border-white/10 bg-brandDark/60 mb-3">
+                    <summary class="cursor-pointer list-none flex items-center justify-between gap-3 px-4 py-3 font-semibold text-white">
+                        <span><i class="fa-solid fa-key mr-3 text-brandGold"></i>Termos técnicos essenciais</span>
+                        <i class="fa-solid fa-chevron-down text-xs text-slate-500 transition group-open:rotate-180"></i>
+                    </summary>
+                    <div class="px-4 pb-4 text-slate-300 text-sm leading-relaxed space-y-3">
+                        <ul class="list-disc pl-5 space-y-1 text-slate-400">
+                            <li><strong>Chave privada / pública:</strong> a privada assina; a pública gera o endereço. Quem tem a privada controla os fundos.</li>
+                            <li><strong>Seed phrase (12/24 palavras):</strong> backup mestre da carteira. Offline e secreta.</li>
+                            <li><strong>UTXO:</strong> modelo de “notas” não gastas. Cada transação consome UTXOs e cria novos.</li>
+                            <li><strong>Satoshis (sats):</strong> a menor unidade (1 BTC = 100.000.000 sats).</li>
+                            <li><strong>Mempool:</strong> fila de transações aguardando confirmação.</li>
+                            <li><strong>Taxa (fee):</strong> incentivo para o minerador incluir sua tx no próximo bloco.</li>
+                            <li><strong>Cold wallet / hardware wallet:</strong> chaves offline — padrão ouro de segurança.</li>
+                        </ul>
+                    </div>
+                </details>
+
+                <details class="group rounded-xl border border-white/10 bg-brandDark/60 mb-3">
+                    <summary class="cursor-pointer list-none flex items-center justify-between gap-3 px-4 py-3 font-semibold text-white">
+                        <span><i class="fa-solid fa-list-check mr-3 text-brandGold"></i>Checklist: você saiu sabendo?</span>
+                        <i class="fa-solid fa-chevron-down text-xs text-slate-500 transition group-open:rotate-180"></i>
+                    </summary>
+                    <div class="px-4 pb-4 text-slate-300 text-sm leading-relaxed space-y-3">
+                        <ul class="list-disc pl-5 space-y-1 text-slate-400">
+                            <li>Explicar o que é Proof of Work e por que gasta energia</li>
+                            <li>Dizer quantos bitcoins existirão no máximo e o que é o halvings</li>
+                            <li>Diferenciar chave privada, endereço e seed phrase</li>
+                            <li>Entender por que “not your keys, not your coins”</li>
+                        </ul>
+                    </div>
+                </details>
+
+                <!-- QUIZ BITCOIN -->
+                <div class="mt-10 pt-8 border-t border-white/10" id="quiz-bitcoin-wrap">
+                    <h4 class="text-white font-bold text-lg mb-1 flex items-center gap-2">
+                        <i class="fa-solid fa-graduation-cap text-brandGold"></i> Quiz — Bitcoin
+                    </h4>
+                    <p class="text-slate-500 text-sm mb-5">Teste o que aprendeu sobre a primeira criptomoeda.</p>
+                    <div id="quiz-bitcoin-container">
+                        <p class="font-medium text-white mb-3" id="quiz-bitcoin-question"></p>
+                        <div class="space-y-2" id="quiz-bitcoin-options"></div>
+                        <div id="quiz-bitcoin-feedback" class="hidden mt-4 p-4 rounded-xl text-sm"></div>
+                        <div class="flex items-center justify-between mt-5">
+                            <span class="text-xs text-slate-500" id="quiz-bitcoin-progress"></span>
+                            <button type="button" id="quiz-bitcoin-next" class="hidden px-5 py-2 rounded-xl bg-brandGold/20 border border-brandGold/40 text-brandGold text-sm font-semibold hover:bg-brandGold hover:text-black transition">Próxima →</button>
+                        </div>
+                    </div>
+                    <div id="quiz-bitcoin-result" class="hidden text-center py-8">
+                        <div class="text-4xl mb-3">🎯</div>
+                        <h4 class="text-xl font-bold text-white mb-2">Módulo Bitcoin concluído!</h4>
+                        <p class="text-slate-400 mb-1">Você acertou <span id="quiz-bitcoin-score" class="text-brandGold font-bold">0</span> de <span id="quiz-bitcoin-total">3</span>.</p>
+                    </div>
+                </div>
+
+                <div class="mt-8 pt-6 border-t border-slate-800 flex justify-end">
+                    <button type="button" data-go="artigo-blockchain" class="px-6 py-3 rounded-xl border border-brandGold/40 text-brandGold hover:bg-brandGold hover:text-black font-semibold text-sm transition">Próximo: Blockchain <i class="fa-solid fa-arrow-right ml-2"></i></button>
                 </div>
             </article>
+
+            <!-- ========== BLOCKCHAIN ========== -->
+            <article id="artigo-blockchain" role="tabpanel" aria-labelledby="tab-blockchain" class="glass-card p-8 rounded-2xl" hidden>
+                <span class="text-brandBlue text-xs font-bold uppercase tracking-wider">Módulo 05B • A Tecnologia por Trás</span>
+                <h3 class="text-2xl font-bold text-white mt-2 mb-4">Blockchain: Como Funciona e Por Que Importa</h3>
+                <p class="text-slate-300 leading-relaxed mb-6">
+                    Blockchain não é sinônimo de Bitcoin. É a estrutura de dados e o sistema de consenso que permitem registro distribuído, transparente e difícil de adulterar — sem precisar de um intermediário central de confiança.
+                </p>
+
+                <h4 class="text-white font-semibold pt-4 pb-2">Aulas do módulo <span class="text-slate-500 text-xs font-normal">(toque para abrir)</span></h4>
+
+                <details class="group rounded-xl border border-white/10 bg-brandDark/60 mb-3" open>
+                    <summary class="cursor-pointer list-none flex items-center justify-between gap-3 px-4 py-3 font-semibold text-white">
+                        <span><i class="fa-solid fa-cubes mr-3 text-brandBlue"></i>O que é uma blockchain</span>
+                        <i class="fa-solid fa-chevron-down text-xs text-slate-500 transition group-open:rotate-180"></i>
+                    </summary>
+                    <div class="px-4 pb-4 text-slate-300 text-sm leading-relaxed space-y-3">
+                        <p>É uma cadeia de blocos. Cada bloco contém transações, um timestamp, o hash do bloco anterior e um nonce (no caso de PoW). Alterar um bloco do passado muda o hash e quebra a ligação com os blocos seguintes.</p>
+                        <ul class="list-disc pl-5 space-y-1 text-slate-400">
+                            <li><strong>Distribuída:</strong> milhares de nós guardam cópias.</li>
+                            <li><strong>Append-only:</strong> na prática só se adiciona; reescrever o passado é caríssimo.</li>
+                            <li><strong>Transparente:</strong> qualquer um pode auditar o histórico público.</li>
+                        </ul>
+                    </div>
+                </details>
+
+                <details class="group rounded-xl border border-white/10 bg-brandDark/60 mb-3">
+                    <summary class="cursor-pointer list-none flex items-center justify-between gap-3 px-4 py-3 font-semibold text-white">
+                        <span><i class="fa-solid fa-scale-balanced mr-3 text-brandBlue"></i>Mecanismos de consenso</span>
+                        <i class="fa-solid fa-chevron-down text-xs text-slate-500 transition group-open:rotate-180"></i>
+                    </summary>
+                    <div class="px-4 pb-4 text-slate-300 text-sm leading-relaxed space-y-3">
+                        <ul class="list-disc pl-5 space-y-1 text-slate-400">
+                            <li><strong>Proof of Work (Bitcoin, Litecoin…):</strong> segurança via trabalho computacional e energia.</li>
+                            <li><strong>Proof of Stake (Ethereum pós-Merge, Cardano, Solana variantes…):</strong> validadores “apostam” moedas; mal comportamento pode ser punido (slashing).</li>
+                            <li><strong>Outros:</strong> DPoS, PoH, BFT etc. — cada um troca eficiência, descentralização e segurança de formas diferentes.</li>
+                        </ul>
+                        <p class="text-slate-400">Não existe consenso “perfeito”. Existe o conjunto de trade-offs que cada rede escolheu.</p>
+                    </div>
+                </details>
+
+                <details class="group rounded-xl border border-white/10 bg-brandDark/60 mb-3">
+                    <summary class="cursor-pointer list-none flex items-center justify-between gap-3 px-4 py-3 font-semibold text-white">
+                        <span><i class="fa-solid fa-code-branch mr-3 text-brandBlue"></i>Diferenças entre redes</span>
+                        <i class="fa-solid fa-chevron-down text-xs text-slate-500 transition group-open:rotate-180"></i>
+                    </summary>
+                    <div class="px-4 pb-4 text-slate-300 text-sm leading-relaxed space-y-3">
+                        <ul class="list-disc pl-5 space-y-1 text-slate-400">
+                            <li><strong>Bitcoin:</strong> foco em segurança, simplicidade e dinheiro. Script limitado de propósito.</li>
+                            <li><strong>Ethereum:</strong> máquina virtual (EVM), contratos inteligentes, DeFi, NFTs. Mais flexível, mais superfície de ataque.</li>
+                            <li><strong>Solana, Avalanche etc.:</strong> alta vazão e baixas taxas; modelos de consenso e graus de descentralização diferentes.</li>
+                            <li><strong>Camada 2 (Lightning, Rollups):</strong> escalam sem abandonar a segurança da camada base.</li>
+                        </ul>
+                    </div>
+                </details>
+
+                <details class="group rounded-xl border border-white/10 bg-brandDark/60 mb-3">
+                    <summary class="cursor-pointer list-none flex items-center justify-between gap-3 px-4 py-3 font-semibold text-white">
+                        <span><i class="fa-solid fa-list-check mr-3 text-brandBlue"></i>Checklist: você saiu sabendo?</span>
+                        <i class="fa-solid fa-chevron-down text-xs text-slate-500 transition group-open:rotate-180"></i>
+                    </summary>
+                    <div class="px-4 pb-4 text-slate-300 text-sm leading-relaxed space-y-3">
+                        <ul class="list-disc pl-5 space-y-1 text-slate-400">
+                            <li>Explicar o que liga um bloco ao anterior</li>
+                            <li>Diferenciar Proof of Work e Proof of Stake</li>
+                            <li>Citar pelo menos 2 diferenças práticas entre Bitcoin e Ethereum</li>
+                            <li>Entender para que servem as camadas 2</li>
+                        </ul>
+                    </div>
+                </details>
+
+                <div class="mt-10 pt-8 border-t border-white/10" id="quiz-blockchain-wrap">
+                    <h4 class="text-white font-bold text-lg mb-1 flex items-center gap-2">
+                        <i class="fa-solid fa-graduation-cap text-brandGold"></i> Quiz — Blockchain
+                    </h4>
+                    <p class="text-slate-500 text-sm mb-5">Teste seu entendimento da tecnologia.</p>
+                    <div id="quiz-blockchain-container">
+                        <p class="font-medium text-white mb-3" id="quiz-blockchain-question"></p>
+                        <div class="space-y-2" id="quiz-blockchain-options"></div>
+                        <div id="quiz-blockchain-feedback" class="hidden mt-4 p-4 rounded-xl text-sm"></div>
+                        <div class="flex items-center justify-between mt-5">
+                            <span class="text-xs text-slate-500" id="quiz-blockchain-progress"></span>
+                            <button type="button" id="quiz-blockchain-next" class="hidden px-5 py-2 rounded-xl bg-brandGold/20 border border-brandGold/40 text-brandGold text-sm font-semibold hover:bg-brandGold hover:text-black transition">Próxima →</button>
+                        </div>
+                    </div>
+                    <div id="quiz-blockchain-result" class="hidden text-center py-8">
+                        <div class="text-4xl mb-3">🎯</div>
+                        <h4 class="text-xl font-bold text-white mb-2">Módulo Blockchain concluído!</h4>
+                        <p class="text-slate-400 mb-1">Você acertou <span id="quiz-blockchain-score" class="text-brandGold font-bold">0</span> de <span id="quiz-blockchain-total">3</span>.</p>
+                    </div>
+                </div>
+
+                <div class="mt-8 pt-6 border-t border-slate-800 flex justify-end gap-3">
+                    <button type="button" data-go="artigo-bitcoin" class="px-5 py-3 rounded-xl border border-white/15 text-slate-300 hover:border-brandBlue/40 font-semibold text-sm transition"><i class="fa-solid fa-arrow-left mr-2"></i> Bitcoin</button>
+                    <button type="button" data-go="artigo-altcoins" class="px-6 py-3 rounded-xl border border-brandGold/40 text-brandGold hover:bg-brandGold hover:text-black font-semibold text-sm transition">Próximo: Outras Criptos <i class="fa-solid fa-arrow-right ml-2"></i></button>
+                </div>
+            </article>
+
+            <!-- ========== OUTRAS CRIPTOMOEDAS ========== -->
+            <article id="artigo-altcoins" role="tabpanel" aria-labelledby="tab-altcoins" class="glass-card p-8 rounded-2xl" hidden>
+                <span class="text-brandBlue text-xs font-bold uppercase tracking-wider">Módulo 05C • O Ecossistema Além do Bitcoin</span>
+                <h3 class="text-2xl font-bold text-white mt-2 mb-4">Altcoins, Stablecoins e Memecoins</h3>
+                <p class="text-slate-300 leading-relaxed mb-6">
+                    Depois do Bitcoin nasceram milhares de criptoativos. Alguns tentam ser dinheiro melhor, outros são plataformas de contratos, outros são experimentos sociais ou puramente especulativos. Separar as categorias evita confusão — e prejuízo.
+                </p>
+
+                <h4 class="text-white font-semibold pt-4 pb-2">Aulas do módulo <span class="text-slate-500 text-xs font-normal">(toque para abrir)</span></h4>
+
+                <details class="group rounded-xl border border-white/10 bg-brandDark/60 mb-3" open>
+                    <summary class="cursor-pointer list-none flex items-center justify-between gap-3 px-4 py-3 font-semibold text-white">
+                        <span><i class="fa-solid fa-layer-group mr-3 text-brandGold"></i>Categorias principais</span>
+                        <i class="fa-solid fa-chevron-down text-xs text-slate-500 transition group-open:rotate-180"></i>
+                    </summary>
+                    <div class="px-4 pb-4 text-slate-300 text-sm leading-relaxed space-y-3">
+                        <ul class="list-disc pl-5 space-y-1 text-slate-400">
+                            <li><strong>Reserve / dinheiro:</strong> Bitcoin (e em menor escala alguns “digital gold” candidates).</li>
+                            <li><strong>Plataformas de contratos:</strong> Ethereum, Solana, etc. — rodam aplicações (DeFi, NFTs, jogos).</li>
+                            <li><strong>Stablecoins:</strong> lastreadas em dólar (USDT, USDC) ou algoritmos. Úteis para preço estável e liquidez.</li>
+                            <li><strong>Memecoins:</strong> valor majoritariamente social/especulativo (Dogecoin, Shiba…). Alto risco.</li>
+                            <li><strong>Tokens de utilidade / governança:</strong> dão acesso a serviços ou voto em protocolos.</li>
+                        </ul>
+                    </div>
+                </details>
+
+                <details class="group rounded-xl border border-white/10 bg-brandDark/60 mb-3">
+                    <summary class="cursor-pointer list-none flex items-center justify-between gap-3 px-4 py-3 font-semibold text-white">
+                        <span><i class="fa-solid fa-dollar-sign mr-3 text-brandGold"></i>Stablecoins na prática</span>
+                        <i class="fa-solid fa-chevron-down text-xs text-slate-500 transition group-open:rotate-180"></i>
+                    </summary>
+                    <div class="px-4 pb-4 text-slate-300 text-sm leading-relaxed space-y-3">
+                        <p>Permitem sair da volatilidade sem voltar ao sistema bancário tradicional. Usadas em trading, remessas e DeFi.</p>
+                        <ul class="list-disc pl-5 space-y-1 text-slate-400">
+                            <li><strong>Com lastro:</strong> reservas em dólares, títulos etc. (ex.: USDC). Risco de contraparte e transparência das reservas.</li>
+                            <li><strong>Algorítmicas:</strong> tentam manter o peg com mecanismos de mercado — histórico de colapsos (ex.: UST).</li>
+                            <li>Sempre pergunte: quem emite? Onde estão as reservas? Com que frequência são auditadas?</li>
+                        </ul>
+                    </div>
+                </details>
+
+                <details class="group rounded-xl border border-white/10 bg-brandDark/60 mb-3">
+                    <summary class="cursor-pointer list-none flex items-center justify-between gap-3 px-4 py-3 font-semibold text-white">
+                        <span><i class="fa-solid fa-dog mr-3 text-brandGold"></i>Memecoins e o risco</span>
+                        <i class="fa-solid fa-chevron-down text-xs text-slate-500 transition group-open:rotate-180"></i>
+                    </summary>
+                    <div class="px-4 pb-4 text-slate-300 text-sm leading-relaxed space-y-3">
+                        <p>Comunidade e narrativa movem o preço. Podem multiplicar — e zerar. Não confundir com investimento de longo prazo baseado em fundamentos.</p>
+                        <ul class="list-disc pl-5 space-y-1 text-slate-400">
+                            <li>Liquidez pode evaporar de um dia para o outro.</li>
+                            <li>Muitos projetos são pump-and-dump ou rug pulls.</li>
+                            <li>Regra prática: só use dinheiro que você aceita perder 100%.</li>
+                        </ul>
+                    </div>
+                </details>
+
+                <details class="group rounded-xl border border-white/10 bg-brandDark/60 mb-3">
+                    <summary class="cursor-pointer list-none flex items-center justify-between gap-3 px-4 py-3 font-semibold text-white">
+                        <span><i class="fa-solid fa-list-check mr-3 text-brandGold"></i>Checklist: você saiu sabendo?</span>
+                        <i class="fa-solid fa-chevron-down text-xs text-slate-500 transition group-open:rotate-180"></i>
+                    </summary>
+                    <div class="px-4 pb-4 text-slate-300 text-sm leading-relaxed space-y-3">
+                        <ul class="list-disc pl-5 space-y-1 text-slate-400">
+                            <li>Separar Bitcoin, plataformas smart-contract, stablecoins e memecoins</li>
+                            <li>Explicar o risco de contraparte em stablecoins</li>
+                            <li>Entender por que memecoins são especulação de alto risco</li>
+                            <li>Não tratar “cripto” como uma categoria única</li>
+                        </ul>
+                    </div>
+                </details>
+
+                <div class="mt-10 pt-8 border-t border-white/10" id="quiz-altcoins-wrap">
+                    <h4 class="text-white font-bold text-lg mb-1 flex items-center gap-2">
+                        <i class="fa-solid fa-graduation-cap text-brandGold"></i> Quiz — Outras Criptomoedas
+                    </h4>
+                    <p class="text-slate-500 text-sm mb-5">Teste se você separa bem as categorias.</p>
+                    <div id="quiz-altcoins-container">
+                        <p class="font-medium text-white mb-3" id="quiz-altcoins-question"></p>
+                        <div class="space-y-2" id="quiz-altcoins-options"></div>
+                        <div id="quiz-altcoins-feedback" class="hidden mt-4 p-4 rounded-xl text-sm"></div>
+                        <div class="flex items-center justify-between mt-5">
+                            <span class="text-xs text-slate-500" id="quiz-altcoins-progress"></span>
+                            <button type="button" id="quiz-altcoins-next" class="hidden px-5 py-2 rounded-xl bg-brandGold/20 border border-brandGold/40 text-brandGold text-sm font-semibold hover:bg-brandGold hover:text-black transition">Próxima →</button>
+                        </div>
+                    </div>
+                    <div id="quiz-altcoins-result" class="hidden text-center py-8">
+                        <div class="text-4xl mb-3">🎯</div>
+                        <h4 class="text-xl font-bold text-white mb-2">Módulo Outras Criptos concluído!</h4>
+                        <p class="text-slate-400 mb-1">Você acertou <span id="quiz-altcoins-score" class="text-brandGold font-bold">0</span> de <span id="quiz-altcoins-total">3</span>.</p>
+                    </div>
+                </div>
+
+                <div class="mt-8 pt-6 border-t border-slate-800 flex justify-end gap-3">
+                    <button type="button" data-go="artigo-blockchain" class="px-5 py-3 rounded-xl border border-white/15 text-slate-300 hover:border-brandBlue/40 font-semibold text-sm transition"><i class="fa-solid fa-arrow-left mr-2"></i> Blockchain</button>
+                    <button type="button" data-go="artigo-sistema" class="px-6 py-3 rounded-xl border border-brandGold/40 text-brandGold hover:bg-brandGold hover:text-black font-semibold text-sm transition">Próximo módulo: Sistema Financeiro <i class="fa-solid fa-arrow-right ml-2"></i></button>
+                </div>
+            </article>
+
 
             <!-- Artigo 5: Sistema Financeiro -->
             <article id="artigo-sistema" role="tabpanel" aria-labelledby="tab-sistema" class="glass-card p-8 rounded-2xl" hidden>
@@ -438,7 +887,30 @@
                 <div class="mt-8 pt-6 border-t border-slate-800 flex justify-end">
                     <button type="button" data-go="artigo-geopolitica" class="px-6 py-3 rounded-xl border border-brandGold/40 text-brandGold hover:bg-brandGold hover:text-black font-semibold text-sm transition">Próximo módulo: Geopolítica e Mercados <i class="fa-solid fa-arrow-right ml-2"></i></button>
                 </div>
-            </article>
+            
+                <!-- QUIZ INTERATIVO -->
+                <div class="mt-10 pt-8 border-t border-white/10" id="quiz-sistema-wrap">
+                    <h4 class="text-white font-bold text-lg mb-1 flex items-center gap-2">
+                        <i class="fa-solid fa-graduation-cap text-brandGold"></i> Quiz — Sistema Financeiro
+                    </h4>
+                    <p class="text-slate-500 text-sm mb-5">Responda e receba feedback imediato. Teste o que aprendeu neste módulo.</p>
+                    <div id="quiz-sistema-container">
+                        <p class="font-medium text-white mb-3" id="quiz-sistema-question"></p>
+                        <div class="space-y-2" id="quiz-sistema-options"></div>
+                        <div id="quiz-sistema-feedback" class="hidden mt-4 p-4 rounded-xl text-sm"></div>
+                        <div class="flex items-center justify-between mt-5">
+                            <span class="text-xs text-slate-500" id="quiz-sistema-progress"></span>
+                            <button type="button" id="quiz-sistema-next" class="hidden px-5 py-2 rounded-xl bg-brandGold/20 border border-brandGold/40 text-brandGold text-sm font-semibold hover:bg-brandGold hover:text-black transition">Próxima →</button>
+                        </div>
+                    </div>
+                    <div id="quiz-sistema-result" class="hidden text-center py-8">
+                        <div class="text-4xl mb-3">🎯</div>
+                        <h4 class="text-xl font-bold text-white mb-2">Módulo concluído!</h4>
+                        <p class="text-slate-400 mb-1">Você acertou <span id="quiz-sistema-score" class="text-brandGold font-bold">0</span> de <span id="quiz-sistema-total">3</span>.</p>
+                        <p class="text-slate-500 text-sm">Continue para o próximo módulo da trilha.</p>
+                    </div>
+                </div>
+</article>
 
             <!-- Artigo 7: Geopolítica e Mercados -->
             <article id="artigo-geopolitica" role="tabpanel" aria-labelledby="tab-geopolitica" class="glass-card p-8 rounded-2xl" hidden>
@@ -461,15 +933,271 @@
                 <div class="mt-8 pt-6 border-t border-slate-800 flex justify-end">
                     <a href="#modulos" class="px-6 py-3 rounded-xl border border-brandGold/40 text-brandGold hover:bg-brandGold hover:text-black font-semibold text-sm transition"><i class="fa-solid fa-arrow-up mr-2"></i>Voltar à Trilha do Conhecimento</a>
                 </div>
-            </article>
+            
+                <!-- QUIZ INTERATIVO -->
+                <div class="mt-10 pt-8 border-t border-white/10" id="quiz-geopolitica-wrap">
+                    <h4 class="text-white font-bold text-lg mb-1 flex items-center gap-2">
+                        <i class="fa-solid fa-graduation-cap text-brandGold"></i> Quiz — Geopolítica e Mercados
+                    </h4>
+                    <p class="text-slate-500 text-sm mb-5">Responda e receba feedback imediato. Teste o que aprendeu neste módulo.</p>
+                    <div id="quiz-geopolitica-container">
+                        <p class="font-medium text-white mb-3" id="quiz-geopolitica-question"></p>
+                        <div class="space-y-2" id="quiz-geopolitica-options"></div>
+                        <div id="quiz-geopolitica-feedback" class="hidden mt-4 p-4 rounded-xl text-sm"></div>
+                        <div class="flex items-center justify-between mt-5">
+                            <span class="text-xs text-slate-500" id="quiz-geopolitica-progress"></span>
+                            <button type="button" id="quiz-geopolitica-next" class="hidden px-5 py-2 rounded-xl bg-brandGold/20 border border-brandGold/40 text-brandGold text-sm font-semibold hover:bg-brandGold hover:text-black transition">Próxima →</button>
+                        </div>
+                    </div>
+                    <div id="quiz-geopolitica-result" class="hidden text-center py-8">
+                        <div class="text-4xl mb-3">🎯</div>
+                        <h4 class="text-xl font-bold text-white mb-2">Módulo concluído!</h4>
+                        <p class="text-slate-400 mb-1">Você acertou <span id="quiz-geopolitica-score" class="text-brandGold font-bold">0</span> de <span id="quiz-geopolitica-total">3</span>.</p>
+                        <p class="text-slate-500 text-sm">Continue para o próximo módulo da trilha.</p>
+                    </div>
+                </div>
+</article>
 
 
 
         </div>
     </section>
 
+
+    <!-- ========== MERCADO AO VIVO ========== -->
+    <section id="mercado" class="py-20 max-w-7xl mx-auto px-6">
+        <div class="text-center mb-10" data-aos="fade-up">
+            <span class="text-brandBlue text-xs font-bold uppercase tracking-wider">Terminal</span>
+            <h2 class="text-3xl font-bold text-white mt-2 mb-2">Mercado ao Vivo</h2>
+            <p class="text-slate-400 text-sm max-w-xl mx-auto">Acompanhe BTC, ETH e o dólar em tempo real. Gráficos profissionais via TradingView.</p>
+        </div>
+
+        <!-- Ticker -->
+        <div class="glass-card rounded-xl mb-6 py-3 overflow-hidden border border-white/10" data-aos="fade-up">
+            <div class="flex animate-pulse-slow whitespace-nowrap text-sm text-slate-300 gap-8 px-4" id="ticker-track" style="animation: ticker 35s linear infinite;">
+                <span><i class="fa-brands fa-bitcoin text-brandGold"></i> BTC/USD <span class="text-emerald-400">—</span></span>
+                <span><i class="fa-brands fa-ethereum text-brandBlue"></i> ETH/USD <span class="text-emerald-400">—</span></span>
+                <span>USD/BRL <span class="text-slate-400">—</span></span>
+                <span>Ouro <span class="text-brandGold">—</span></span>
+                <span>Selic 10,75%</span>
+                <span>IPCA 12m ~4,2%</span>
+                <span><i class="fa-brands fa-bitcoin text-brandGold"></i> BTC/USD <span class="text-emerald-400">—</span></span>
+                <span><i class="fa-brands fa-ethereum text-brandBlue"></i> ETH/USD <span class="text-emerald-400">—</span></span>
+                <span>USD/BRL <span class="text-slate-400">—</span></span>
+                <span>Ouro <span class="text-brandGold">—</span></span>
+                <span>Selic 10,75%</span>
+                <span>IPCA 12m ~4,2%</span>
+            </div>
+        </div>
+
+        <div class="gap-6" data-aos="fade-up">
+            <div class="glass-card rounded-2xl overflow-hidden border border-white/10">
+                <div class="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-b border-white/10">
+                    <h3 class="font-semibold text-white flex items-center gap-2 text-sm">
+                        <i class="fa-solid fa-chart-line text-brandGold"></i> Gráfico ao Vivo
+                    </h3>
+                    <div class="flex gap-2">
+                        <button type="button" onclick="loadTV('BINANCE:BTCUSDT')" class="tv-btn px-3 py-1 rounded-lg text-xs font-medium border border-brandGold/40 bg-brandGold/15 text-brandGold">BTC</button>
+                        <button type="button" onclick="loadTV('BINANCE:ETHUSDT')" class="tv-btn px-3 py-1 rounded-lg text-xs font-medium border border-white/10 text-slate-400 hover:border-brandBlue/40">ETH</button>
+                        <button type="button" onclick="loadTV('FX_IDC:USDBRL')" class="tv-btn px-3 py-1 rounded-lg text-xs font-medium border border-white/10 text-slate-400 hover:border-brandBlue/40">USD/BRL</button>
+                    </div>
+                </div>
+                <div id="tradingview_chart" style="height:460px;"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ========== CALCULADORAS FINANCEIRAS ========== -->
+    <section id="calculadoras" class="py-20 bg-slate-950/60 border-y border-slate-800">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="text-center mb-10" data-aos="fade-up">
+                <span class="text-brandGold text-xs font-bold uppercase tracking-wider">Ferramentas</span>
+                <h2 class="text-3xl font-bold text-white mt-2 mb-2">Calculadoras Financeiras</h2>
+                <p class="text-slate-400 text-sm max-w-xl mx-auto">Simule juros compostos, veja o impacto real da inflação e converta valores entre moedas e criptoativos.</p>
+            </div>
+
+            <div class="grid lg:grid-cols-2 gap-8">
+                <!-- Renda Fixa vs Inflação -->
+                <div class="glass-card rounded-2xl p-6 border border-white/10" data-aos="fade-up">
+                    <h3 class="text-lg font-bold text-white mb-1 flex items-center gap-2">
+                        <i class="fa-solid fa-chart-column text-brandGold"></i> Renda Fixa vs Inflação
+                    </h3>
+                    <p class="text-sm text-slate-500 mb-6">Simule o poder de compra real após impostos e IPCA.</p>
+
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">Aporte Inicial (R$)</label>
+                            <input type="number" id="rf-principal" value="10000" class="w-full bg-brandDark border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-brandGold" />
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs text-slate-400 mb-1">Taxa Selic / CDB (% a.a.)</label>
+                                <input type="number" id="rf-taxa" value="10.75" step="0.01" class="w-full bg-brandDark border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-brandGold" />
+                            </div>
+                            <div>
+                                <label class="block text-xs text-slate-400 mb-1">Inflação IPCA (% a.a.)</label>
+                                <input type="number" id="rf-ipca" value="4.2" step="0.01" class="w-full bg-brandDark border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-brandGold" />
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">Prazo</label>
+                            <input type="range" id="rf-prazo" min="1" max="60" value="24" class="w-full accent-brandGold" oninput="document.getElementById('rf-prazo-val').textContent=this.value+' meses'" />
+                            <div class="text-right text-xs text-brandGold mt-1" id="rf-prazo-val">24 meses</div>
+                        </div>
+                        <button type="button" onclick="calcularRendaFixa()" class="w-full py-3 rounded-xl bg-brandGold/20 border border-brandGold/40 text-brandGold font-semibold hover:bg-brandGold hover:text-black transition">
+                            Calcular Resultado Real
+                        </button>
+                    </div>
+
+                    <div id="rf-resultado" class="hidden mt-6 space-y-4">
+                        <div class="grid grid-cols-2 gap-3 text-sm">
+                            <div class="bg-brandDark rounded-xl p-3 border border-white/5">
+                                <div class="text-xs text-slate-500">Valor Bruto</div>
+                                <div class="font-bold text-lg text-white" id="rf-bruto">R$ 0</div>
+                            </div>
+                            <div class="bg-brandDark rounded-xl p-3 border border-white/5">
+                                <div class="text-xs text-slate-500">IR Retido</div>
+                                <div class="font-bold text-lg text-red-400" id="rf-ir">R$ 0</div>
+                            </div>
+                            <div class="bg-brandDark rounded-xl p-3 border border-white/5">
+                                <div class="text-xs text-slate-500">Valor Líquido</div>
+                                <div class="font-bold text-lg text-emerald-400" id="rf-liquido">R$ 0</div>
+                            </div>
+                            <div class="bg-brandDark rounded-xl p-3 border border-white/5">
+                                <div class="text-xs text-slate-500">Poder de Compra Real</div>
+                                <div class="font-bold text-lg text-brandGold" id="rf-real">R$ 0</div>
+                            </div>
+                        </div>
+                        <div class="bg-brandGold/10 border border-brandGold/30 rounded-xl p-4 text-sm">
+                            <p class="font-semibold text-brandGold mb-1"><i class="fa-solid fa-lightbulb mr-1"></i> Tabela Regressiva do IR</p>
+                            <ul class="text-slate-400 space-y-1 text-xs">
+                                <li>• Até 180 dias: <strong class="text-slate-200">22,5%</strong></li>
+                                <li>• 181 a 360 dias: <strong class="text-slate-200">20%</strong></li>
+                                <li>• 361 a 720 dias: <strong class="text-slate-200">17,5%</strong></li>
+                                <li>• Acima de 720 dias: <strong class="text-slate-200">15%</strong></li>
+                            </ul>
+                            <p class="mt-2 text-xs text-slate-500" id="rf-explicacao"></p>
+                        </div>
+                        <canvas id="rf-chart" height="180"></canvas>
+                    </div>
+                </div>
+
+                <!-- Conversor Global -->
+                <div class="glass-card rounded-2xl p-6 border border-white/10" data-aos="fade-up" data-aos-delay="100">
+                    <h3 class="text-lg font-bold text-white mb-1 flex items-center gap-2">
+                        <i class="fa-solid fa-right-left text-brandBlue"></i> Conversor Global
+                    </h3>
+                    <p class="text-sm text-slate-500 mb-6">Converta entre as principais moedas fiduciárias e criptoativos (valores aproximados para fins educacionais).</p>
+
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">Valor</label>
+                            <input type="number" id="conv-valor" value="1000" class="w-full bg-brandDark border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-brandBlue" oninput="converterGlobal()" />
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs text-slate-400 mb-1">De</label>
+                                <select id="conv-from" onchange="converterGlobal()" class="w-full bg-brandDark border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-brandBlue">
+                                    <option value="BRL">🇧🇷 Real (BRL)</option>
+                                    <option value="USD">🇺🇸 Dólar (USD)</option>
+                                    <option value="EUR">🇪🇺 Euro (EUR)</option>
+                                    <option value="CHF">🇨🇭 Franco Suíço (CHF)</option>
+                                    <option value="GBP">🇬🇧 Libra (GBP)</option>
+                                    <option value="JPY">🇯🇵 Iene (JPY)</option>
+                                    <option value="CNY">🇨🇳 Yuan (CNY)</option>
+                                    <option value="AUD">🇦🇺 Dólar Aus. (AUD)</option>
+                                    <option value="CAD">🇨🇦 Dólar Can. (CAD)</option>
+                                    <option value="INR">🇮🇳 Rupia (INR)</option>
+                                    <option value="BTC">₿ Bitcoin (BTC)</option>
+                                    <option value="ETH">Ξ Ethereum (ETH)</option>
+                                    <option value="SATS">₿ Satoshis (SATS)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs text-slate-400 mb-1">Para</label>
+                                <select id="conv-to" onchange="converterGlobal()" class="w-full bg-brandDark border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-brandBlue">
+                                    <option value="BTC">₿ Bitcoin (BTC)</option>
+                                    <option value="ETH">Ξ Ethereum (ETH)</option>
+                                    <option value="SATS">₿ Satoshis (SATS)</option>
+                                    <option value="USD">🇺🇸 Dólar (USD)</option>
+                                    <option value="BRL">🇧🇷 Real (BRL)</option>
+                                    <option value="EUR">🇪🇺 Euro (EUR)</option>
+                                    <option value="CHF">🇨🇭 Franco Suíço (CHF)</option>
+                                    <option value="GBP">🇬🇧 Libra (GBP)</option>
+                                    <option value="JPY">🇯🇵 Iene (JPY)</option>
+                                    <option value="CNY">🇨🇳 Yuan (CNY)</option>
+                                    <option value="AUD">🇦🇺 Dólar Aus. (AUD)</option>
+                                    <option value="CAD">🇨🇦 Dólar Can. (CAD)</option>
+                                    <option value="INR">🇮🇳 Rupia (INR)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <button type="button" onclick="swapConv()" class="w-full py-2 rounded-xl border border-white/10 text-sm text-slate-400 hover:border-brandBlue/50 hover:text-brandBlue transition">
+                            <i class="fa-solid fa-arrow-right-arrow-left mr-2"></i> Inverter
+                        </button>
+                    </div>
+
+                    <div class="mt-6 bg-brandDark rounded-xl p-5 text-center border border-white/5">
+                        <div class="text-xs text-slate-500 mb-1">Resultado</div>
+                        <div class="text-3xl font-bold text-brandGold" id="conv-resultado">—</div>
+                        <div class="text-xs text-slate-500 mt-2">Taxas educacionais aproximadas</div>
+                    </div>
+
+                    <div class="mt-4 grid grid-cols-3 gap-2 text-center text-xs">
+                        <div class="bg-brandDark rounded-xl p-2 border border-white/5">
+                            <div class="text-slate-500">BTC</div>
+                            <div class="font-semibold text-brandGold" id="rate-btc">~$95.000</div>
+                        </div>
+                        <div class="bg-brandDark rounded-xl p-2 border border-white/5">
+                            <div class="text-slate-500">ETH</div>
+                            <div class="font-semibold text-brandBlue" id="rate-eth">~$3.400</div>
+                        </div>
+                        <div class="bg-brandDark rounded-xl p-2 border border-white/5">
+                            <div class="text-slate-500">USD/BRL</div>
+                            <div class="font-semibold text-white" id="rate-usdbrl">~5,70</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Juros Compostos -->
+                <div class="glass-card rounded-2xl p-6 border border-white/10 lg:col-span-2" data-aos="fade-up">
+                    <h3 class="text-lg font-bold text-white mb-1 flex items-center gap-2">
+                        <i class="fa-solid fa-calculator text-brandGold"></i> Juros Compostos
+                    </h3>
+                    <p class="text-sm text-slate-500 mb-6">Simule o crescimento do seu dinheiro com aportes mensais e veja o efeito dos juros compostos (e uma estimativa de IR regressivo quando não há aporte mensal).</p>
+
+                    <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">Aporte inicial (R$)</label>
+                            <input type="number" id="jc-i" value="1000" min="0" class="w-full bg-brandDark border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-brandGold" />
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">Aporte mensal (R$)</label>
+                            <input type="number" id="jc-v" value="200" min="0" class="w-full bg-brandDark border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-brandGold" />
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">Taxa anual (%)</label>
+                            <input type="number" id="jc-r" value="10.75" step="0.01" min="0" class="w-full bg-brandDark border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-brandGold" />
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">Prazo (anos)</label>
+                            <input type="number" id="jc-t" value="10" min="1" class="w-full bg-brandDark border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-brandGold" />
+                        </div>
+                    </div>
+                    <div id="jc-out" class="mt-5 p-4 rounded-xl bg-brandDark border border-brandGold/30 text-slate-200 text-sm leading-relaxed">
+                        Preencha os valores para simular.
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
     <!-- SEÇÃO DE GEOPOLÍTICA E VISÃO MACRO -->
-    <section id="geopolitica" class="py-20 max-w-7xl mx-auto px-6">
+    
+    <!-- ========== CURSO COMPLETO / HOTMART ========== -->
+
+<section id="geopolitica" class="py-20 max-w-7xl mx-auto px-6">
         <div class="glass-card p-8 md:p-12 rounded-3xl border border-brandGold/30 relative overflow-hidden" data-aos="fade-up">
             <div class="max-w-3xl">
                 <span class="px-4 py-1.5 rounded-full border border-brandGold/30 bg-brandGold/10 text-brandGold text-xs font-semibold uppercase tracking-widest mb-6 inline-block">
@@ -514,7 +1242,104 @@
     </section>
 
     <!-- Footer -->
-    <footer class="border-t border-slate-800 py-10 text-center text-slate-500 text-sm">
+    
+    <!-- ========== TRILHA DE ESTUDOS ========== -->
+    <section id="trilha" class="py-20 max-w-7xl mx-auto px-6">
+        <div class="text-center mb-12" data-aos="fade-up">
+            <span class="text-brandBlue text-xs font-bold uppercase tracking-wider">Roteiro</span>
+            <h2 class="text-3xl font-bold text-white mt-2 mb-3">Como usar este site</h2>
+            <p class="text-slate-400 text-sm max-w-xl mx-auto">Siga a ordem abaixo se estiver começando do zero. Cada passo prepara o próximo.</p>
+        </div>
+        <div class="grid md:grid-cols-5 gap-4" data-aos="fade-up">
+            <div class="glass-card rounded-2xl p-5 border border-white/10 relative">
+                <span class="absolute -top-3 left-4 px-2 py-0.5 rounded-full bg-brandGold text-black text-[10px] font-bold">1</span>
+                <h3 class="font-bold text-white text-sm mt-1 mb-2">Fundamentos</h3>
+                <p class="text-xs text-slate-500">Renda, patrimônio, orçamento e pagar-se primeiro.</p>
+                <a href="#artigos" onclick="document.querySelector('[data-target=\'artigo-fundamentos\']')?.click()" class="inline-block mt-3 text-xs text-brandBlue hover:underline">Abrir módulo →</a>
+            </div>
+            <div class="glass-card rounded-2xl p-5 border border-white/10 relative">
+                <span class="absolute -top-3 left-4 px-2 py-0.5 rounded-full bg-brandGold text-black text-[10px] font-bold">2</span>
+                <h3 class="font-bold text-white text-sm mt-1 mb-2">Renda Fixa</h3>
+                <p class="text-xs text-slate-500">Selic, Tesouro, CDB, IR e rentabilidade real.</p>
+                <a href="#artigos" class="inline-block mt-3 text-xs text-brandBlue hover:underline">Estudar RF →</a>
+            </div>
+            <div class="glass-card rounded-2xl p-5 border border-white/10 relative">
+                <span class="absolute -top-3 left-4 px-2 py-0.5 rounded-full bg-brandGold text-black text-[10px] font-bold">3</span>
+                <h3 class="font-bold text-white text-sm mt-1 mb-2">Renda Variável</h3>
+                <p class="text-xs text-slate-500">Ações, FIIs, ETFs, risco e mentalidade.</p>
+                <a href="#artigos" class="inline-block mt-3 text-xs text-brandBlue hover:underline">Estudar RV →</a>
+            </div>
+            <div class="glass-card rounded-2xl p-5 border border-white/10 relative">
+                <span class="absolute -top-3 left-4 px-2 py-0.5 rounded-full bg-brandGold text-black text-[10px] font-bold">4</span>
+                <h3 class="font-bold text-white text-sm mt-1 mb-2">Criptomoedas</h3>
+                <p class="text-xs text-slate-500">Bitcoin, blockchain e outras criptos com segurança.</p>
+                <a href="#artigos" class="inline-block mt-3 text-xs text-brandBlue hover:underline">Estudar cripto →</a>
+            </div>
+            <div class="glass-card rounded-2xl p-5 border border-white/10 relative">
+                <span class="absolute -top-3 left-4 px-2 py-0.5 rounded-full bg-brandBlue text-black text-[10px] font-bold">5</span>
+                <h3 class="font-bold text-white text-sm mt-1 mb-2">Praticar</h3>
+                <p class="text-xs text-slate-500">Calculadoras, gráfico ao vivo e auto-custódia.</p>
+                <a href="#calculadoras" class="inline-block mt-3 text-xs text-brandBlue hover:underline">Abrir ferramentas →</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- ========== FAQ ========== -->
+    <section id="faq" class="py-20 bg-slate-950/50 border-y border-slate-800">
+        <div class="max-w-3xl mx-auto px-6">
+            <div class="text-center mb-10" data-aos="fade-up">
+                <span class="text-brandGold text-xs font-bold uppercase tracking-wider">Dúvidas</span>
+                <h2 class="text-3xl font-bold text-white mt-2 mb-2">Perguntas frequentes</h2>
+                <p class="text-slate-500 text-sm">Respostas diretas para quem está começando.</p>
+            </div>
+            <div class="space-y-3" data-aos="fade-up">
+                <details class="glass-card rounded-xl group">
+                    <summary class="cursor-pointer list-none flex items-center justify-between px-5 py-4 font-semibold text-white text-sm">
+                        Por onde eu começo se nunca investi?
+                        <i class="fa-solid fa-chevron-down text-xs text-slate-500 group-open:rotate-180 transition"></i>
+                    </summary>
+                    <div class="px-5 pb-4 text-sm text-slate-400 leading-relaxed">Comece por <strong class="text-slate-300">Fundamentos</strong> e depois <strong class="text-slate-300">Renda Fixa</strong>. Use a seção Trilha no menu. Só depois avance para renda variável e cripto.</div>
+                </details>
+                <details class="glass-card rounded-xl group">
+                    <summary class="cursor-pointer list-none flex items-center justify-between px-5 py-4 font-semibold text-white text-sm">
+                        O que é a taxa Selic?
+                        <i class="fa-solid fa-chevron-down text-xs text-slate-500 group-open:rotate-180 transition"></i>
+                    </summary>
+                    <div class="px-5 pb-4 text-sm text-slate-400 leading-relaxed">É a taxa básica de juros do Brasil, definida pelo Banco Central. Ela influencia CDBs, Tesouro Selic e o custo do crédito. Quando a Selic sobe, a renda fixa pós-fixada tende a render mais.</div>
+                </details>
+                <details class="glass-card rounded-xl group">
+                    <summary class="cursor-pointer list-none flex items-center justify-between px-5 py-4 font-semibold text-white text-sm">
+                        Por que a calculadora fala em “poder de compra real”?
+                        <i class="fa-solid fa-chevron-down text-xs text-slate-500 group-open:rotate-180 transition"></i>
+                    </summary>
+                    <div class="px-5 pb-4 text-sm text-slate-400 leading-relaxed">Porque a inflação reduz o que o dinheiro compra. Um rendimento de 10% com inflação de 5% não é 10% de ganho real — é cerca de 5%. A calculadora mostra isso de forma simples.</div>
+                </details>
+                <details class="glass-card rounded-xl group">
+                    <summary class="cursor-pointer list-none flex items-center justify-between px-5 py-4 font-semibold text-white text-sm">
+                        O que significa “not your keys, not your coins”?
+                        <i class="fa-solid fa-chevron-down text-xs text-slate-500 group-open:rotate-180 transition"></i>
+                    </summary>
+                    <div class="px-5 pb-4 text-sm text-slate-400 leading-relaxed">Se a exchange guarda suas chaves, você tem um crédito com a empresa — não a custódia direta. Auto-custódia (sua seed phrase, offline) é soberania. Veja a seção Auto-Custódia.</div>
+                </details>
+                <details class="glass-card rounded-xl group">
+                    <summary class="cursor-pointer list-none flex items-center justify-between px-5 py-4 font-semibold text-white text-sm">
+                        Este site recomenda o que comprar?
+                        <i class="fa-solid fa-chevron-down text-xs text-slate-500 group-open:rotate-180 transition"></i>
+                    </summary>
+                    <div class="px-5 pb-4 text-sm text-slate-400 leading-relaxed">Não. O conteúdo é educacional. Não é recomendação de investimento. Decisões são sempre suas, com base no seu perfil e estudo.</div>
+                </details>
+                <details class="glass-card rounded-xl group">
+                    <summary class="cursor-pointer list-none flex items-center justify-between px-5 py-4 font-semibold text-white text-sm">
+                        Os gráficos e números estão sempre atualizados?
+                        <i class="fa-solid fa-chevron-down text-xs text-slate-500 group-open:rotate-180 transition"></i>
+                    </summary>
+                    <div class="px-5 pb-4 text-sm text-slate-400 leading-relaxed">O gráfico TradingView é ao vivo. Selic/IPCA no ticker são referências educativas e podem não refletir o valor do dia — confira sempre fontes oficiais (BCB, IBGE).</div>
+                </details>
+            </div>
+        </div>
+    </section>
+
+<footer class="border-t border-slate-800 py-10 text-center text-slate-500 text-sm">
         <div class="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-4">
             <div class="flex items-center space-x-2">
                 <i class="fa-solid fa-cube text-brandBlue"></i>
@@ -567,8 +1392,8 @@
 
             // Setas do catálogo
             const cat = document.getElementById('catalogo');
-            document.getElementById('cat-prev').addEventListener('click', function () { cat.scrollBy({ left: -480, behavior: 'smooth' }); });
-            document.getElementById('cat-next').addEventListener('click', function () { cat.scrollBy({ left: 480, behavior: 'smooth' }); });
+            document.getElementById('cat-prev') && document.getElementById('cat-prev').addEventListener('click', function () { cat.scrollBy({ left: -480, behavior: 'smooth' }); });
+            document.getElementById('cat-next') && document.getElementById('cat-next').addEventListener('click', function () { cat.scrollBy({ left: 480, behavior: 'smooth' }); });
 
             // Pôsteres do catálogo abrem a aba certa
             document.querySelectorAll('a[href^="#artigo-"]').forEach(function (a) {
@@ -607,10 +1432,584 @@
             calc();
         })();
 
+        
+        // ========== QUIZZES INTERATIVOS POR MÓDULO ==========
+        const QUIZ_DATA = {
+            "quiz-fundamentos": {'title': 'Quiz — Fundamentos Financeiros', 'questions': [{'q': 'Qual a diferença entre renda e patrimônio?', 'options': ['São a mesma coisa', 'Renda é o que entra; patrimônio é o que você tem depois de descontar dívidas', 'Patrimônio é só o salário', 'Renda inclui apenas investimentos'], 'correct': 1, 'feedback': 'Correto! Renda é fluxo (o que entra). Patrimônio é estoque (ativos menos passivos).'}, {'q': "O que significa 'pagar-se primeiro'?", 'options': ['Pagar todas as contas antes de qualquer gasto', 'Separar uma parte da renda assim que ela cai e viver com o resto', 'Gastar primeiro e guardar o que sobrar', 'Priorizar cartão de crédito'], 'correct': 1, 'feedback': 'Exato. Quem guarda só o que sobra quase nunca sobra nada. Pagar-se primeiro inverte a lógica.'}, {'q': 'Qual divisão de orçamento é um bom ponto de partida?', 'options': ['70% necessidades, 20% desejos, 10% futuro', '50% necessidades, 30% desejos, 20% futuro', '90% gastos, 10% investimentos', '100% no presente'], 'correct': 1, 'feedback': 'A regra 50/30/20 é um ponto de partida clássico e ajustável à sua realidade.'}]},
+            "quiz-politica": {'title': 'Quiz — Política Monetária', 'questions': [{'q': 'O que é a taxa Selic?', 'options': ['Imposto sobre investimentos', 'A taxa básica de juros da economia brasileira, definida pelo Copom', 'A inflação oficial', 'O salário mínimo'], 'correct': 1, 'feedback': 'Correto! A Selic é a taxa de referência que influencia todo o custo do crédito e a rentabilidade da renda fixa.'}, {'q': 'Quando o Banco Central sobe a Selic, o efeito esperado é:', 'options': ['Aumentar o consumo imediatamente', 'Desestimular o crédito e ajudar a controlar a inflação', 'Imprimir mais dinheiro', 'Reduzir a dívida pública automaticamente'], 'correct': 1, 'feedback': 'Juros mais altos encarecem o crédito, desaceleram a demanda e ajudam a conter a inflação.'}, {'q': 'O que é o IPCA?', 'options': ['Índice de preços das ações', 'O principal índice oficial de inflação ao consumidor no Brasil', 'Taxa de juros do CDB', 'Indicador de desemprego'], 'correct': 1, 'feedback': 'IPCA = Índice Nacional de Preços ao Consumidor Amplo. É a meta de inflação do Banco Central.'}]},
+            "quiz-rendafixa": {'title': 'Quiz — Renda Fixa', 'questions': [{'q': 'Na tabela regressiva do IR sobre renda fixa, qual a alíquota após 720 dias?', 'options': ['22,5%', '20%', '17,5%', '15%'], 'correct': 3, 'feedback': 'Correto! Após 720 dias a alíquota cai para 15%. Quanto mais tempo, menor o imposto.'}, {'q': 'O que é um título atrelado ao IPCA?', 'options': ['Paga apenas a inflação, sem juros', 'Paga a inflação (IPCA) + uma taxa prefixada de juros', 'É igual à poupança', 'Não tem risco de crédito'], 'correct': 1, 'feedback': 'Títulos IPCA+ protegem o poder de compra e ainda pagam um prêmio real.'}, {'q': "Por que a rentabilidade 'líquida' importa mais que a bruta?", 'options': ['Porque o banco gosta', 'Porque impostos e inflação corroem o valor real do dinheiro', 'Porque a bruta não existe', 'Não importa'], 'correct': 1, 'feedback': 'Sempre compare o retorno real (após IR e inflação). É o que realmente sobra no bolso.'}]},
+            "quiz-rendavariavel": {'title': 'Quiz — Renda Variável', 'questions': [{'q': 'O que caracteriza a renda variável?', 'options': ['Retorno garantido pelo governo', 'Possibilidade de ganho ou perda de capital, sem rentabilidade pré-definida', 'Só ações de empresas brasileiras', 'Investimento sem risco'], 'correct': 1, 'feedback': 'Na renda variável o retorno não é contratado. Você participa do risco e do potencial de valorização.'}, {'q': 'Diversificar em ações serve principalmente para:', 'options': ['Garantir lucro', 'Reduzir o impacto negativo de um único ativo ou setor', 'Aumentar o IR', 'Evitar a bolsa'], 'correct': 1, 'feedback': 'Diversificação não elimina risco, mas reduz a concentração em um único ponto de falha.'}, {'q': 'O que é um ETF?', 'options': ['Um tipo de CDB', 'Fundo negociado em bolsa que replica um índice ou cesta de ativos', 'Moeda digital', 'Título público'], 'correct': 1, 'feedback': 'ETFs permitem exposição diversificada com uma única compra, com custos geralmente baixos.'}]},
+            "quiz-sistema": {'title': 'Quiz — Sistema Financeiro', 'questions': [{'q': 'O que é o SWIFT?', 'options': ['Uma criptomoeda', 'Rede de mensagens entre bancos que avisa quem deve pagar quem', 'O banco central europeu', 'Sistema de cartão de crédito'], 'correct': 1, 'feedback': 'SWIFT transmite mensagens. A liquidação real do dinheiro acontece por outros mecanismos (contas correspondentes, bancos centrais etc.).'}, {'q': 'Por que transferências internacionais costumam ser caras e lentas?', 'options': ['Porque o Pix não existe no exterior', 'Porque passam por bancos correspondentes e intermediários', 'Porque o governo proíbe', 'Não são caras'], 'correct': 1, 'feedback': 'Cada intermediário cobra e adiciona tempo. Por isso soluções como stablecoins e redes crypto estão sendo exploradas.'}, {'q': 'O que são reservas bancárias no Banco Central?', 'options': ['Dinheiro do cliente na conta corrente', 'Saldos que os bancos mantêm no BC e usam para liquidar pagamentos entre si', 'Ouro físico', 'Ações de bancos'], 'correct': 1, 'feedback': 'É a base do sistema de liquidações. No Brasil o STR e o Pix se apoiam nessa estrutura.'}]},
+            "quiz-geopolitica": {'title': 'Quiz — Geopolítica e Mercados', 'questions': [{'q': 'Por que sanções financeiras dependem fortemente do dólar?', 'options': ['Porque o dólar é a única moeda do mundo', 'Porque grande parte do comércio e das reservas internacionais ainda usa o dólar e o sistema financeiro ligado a ele', 'Porque o Fed controla todos os bancos', 'Não dependem'], 'correct': 1, 'feedback': 'O dólar ainda é a principal moeda de reserva e de liquidação internacional. Quem controla o acesso a esse sistema tem poder de sanção.'}, {'q': "O que a 'desdolarização' busca, na prática?", 'options': ['Acabar com o comércio', 'Reduzir a dependência do dólar em reservas, comércio e pagamentos entre países', 'Proibir o uso de dólares por cidadãos', 'Eliminar o ouro'], 'correct': 1, 'feedback': 'Países buscam alternativas (outras moedas, ouro, sistemas paralelos) para reduzir vulnerabilidade a sanções e decisões dos EUA.'}, {'q': 'Como a geopolítica chega ao seu bolso?', 'options': ['Só afeta governos', 'Via câmbio, preço de commodities, juros e inflação', 'Apenas pelo preço do Bitcoin', 'Não chega'], 'correct': 1, 'feedback': 'Guerras, sanções e tensões comerciais afetam petróleo, alimentos, dólar e, por consequência, sua inflação e poder de compra.'}]},
+
+            "quiz-bitcoin": {
+                "title": "Quiz — Bitcoin",
+                "questions": [
+                    {"q": "Qual o limite máximo de emissão do Bitcoin?", "options": ["21 milhões", "Ilimitado", "100 milhões", "1 bilhão"], "correct": 0, "feedback": "Correto! A oferta máxima é de 21 milhões de bitcoins — escassez programada."},
+                    {"q": "O que é Proof of Work no Bitcoin?", "options": ["Votação entre bancos", "Competição computacional para validar blocos gastando energia", "Prova de identidade do usuário", "Sistema de empréstimo"], "correct": 1, "feedback": "PoW exige trabalho computacional real. É isso que ancora a segurança e a escassez."},
+                    {"q": "O que acontece no Halving?", "options": ["O preço dobra automaticamente", "A recompensa por bloco minerado é cortada pela metade", "A rede desliga por 1 dia", "Todos os bitcoins são redistribuídos"], "correct": 1, "feedback": "A cada ~4 anos a recompensa dos mineradores cai pela metade, reduzindo a emissão de novos BTC."}
+                ]
+            },
+            "quiz-blockchain": {
+                "title": "Quiz — Blockchain",
+                "questions": [
+                    {"q": "O que liga um bloco ao anterior na blockchain?", "options": ["A assinatura do banco central", "O hash do bloco anterior", "O nome do minerador", "A data do sistema operacional"], "correct": 1, "feedback": "Cada bloco guarda o hash do anterior. Alterar o passado quebra a cadeia."},
+                    {"q": "Qual a principal diferença prática entre PoW e PoS?", "options": ["PoS usa energia; PoW usa moedas", "PoW usa trabalho computacional/energia; PoS usa stake (moedas em garantia)", "Não há diferença", "PoS só existe no Bitcoin"], "correct": 1, "feedback": "PoW = energia e hardware. PoS = capital em stake e risco de slashing."},
+                    {"q": "Para que servem as Camadas 2 (ex.: Lightning, Rollups)?", "options": ["Substituir o Bitcoin", "Escalar transações mantendo segurança da camada base", "Imprimir mais moedas", "Eliminar taxas para sempre"], "correct": 1, "feedback": "L2s aumentam vazão e reduzem custo sem abandonar a segurança da L1."}
+                ]
+            },
+            "quiz-altcoins": {
+                "title": "Quiz — Outras Criptos",
+                "questions": [
+                    {"q": "O que caracteriza uma stablecoin?", "options": ["Preço que sobe sempre", "Busca manter valor estável, geralmente atrelado ao dólar", "Só existe no Bitcoin", "É um tipo de memecoin"], "correct": 1, "feedback": "Stablecoins visam estabilidade de preço. O risco está no lastro e no emissor."},
+                    {"q": "Qual o maior risco prático das memecoins?", "options": ["Imposto alto", "Especulação extrema, liquidez frágil e possibilidade de ir a zero", "Só podem ser compradas por bancos", "Não têm risco"], "correct": 1, "feedback": "Memecoins são narrativa + fluxo. Podem multiplicar ou zerar. Só com dinheiro que você aceita perder."},
+                    {"q": "Por que não se deve tratar 'cripto' como uma categoria única?", "options": ["Porque todas são iguais", "Porque Bitcoin, plataformas, stablecoins e memecoins têm riscos e propósitos muito diferentes", "Porque o governo proíbe", "Porque só existe uma criptomoeda"], "correct": 1, "feedback": "Misturar tudo no mesmo saco leva a decisões ruins. Separe por função e risco."}
+                ]
+            },
+
+        };
+
+        const quizState = {};
+
+        function initQuiz(qid) {
+            const data = QUIZ_DATA[qid];
+            if (!data) return;
+            quizState[qid] = { index: 0, score: 0, answered: false };
+            renderQuiz(qid);
+        }
+
+        function renderQuiz(qid) {
+            const data = QUIZ_DATA[qid];
+            const st = quizState[qid];
+            if (!data || !st) return;
+            const qEl = document.getElementById(qid + '-question');
+            const opts = document.getElementById(qid + '-options');
+            if (!qEl || !opts) return;
+            const item = data.questions[st.index];
+            qEl.textContent = (st.index + 1) + '. ' + item.q;
+            var prog = document.getElementById(qid + '-progress');
+            if (prog) prog.textContent = 'Pergunta ' + (st.index + 1) + ' de ' + data.questions.length;
+            var fb = document.getElementById(qid + '-feedback');
+            if (fb) fb.classList.add('hidden');
+            var next = document.getElementById(qid + '-next');
+            if (next) next.classList.add('hidden');
+            st.answered = false;
+            opts.innerHTML = item.options.map(function(opt, i) {
+                return '<button type="button" class="quiz-option w-full text-left px-4 py-3 rounded-xl text-sm text-slate-300" data-idx="' + i + '">' + opt + '</button>';
+            }).join('');
+            opts.querySelectorAll('.quiz-option').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    answerQuiz(qid, parseInt(btn.dataset.idx, 10));
+                });
+            });
+        }
+
+        function answerQuiz(qid, idx) {
+            const st = quizState[qid];
+            if (st.answered) return;
+            st.answered = true;
+            const data = QUIZ_DATA[qid];
+            const item = data.questions[st.index];
+            const buttons = document.querySelectorAll('#' + qid + '-options .quiz-option');
+            buttons.forEach(function(btn, i) {
+                btn.classList.add('disabled');
+                if (i === item.correct) btn.classList.add('correct');
+                else if (i === idx) btn.classList.add('wrong');
+            });
+            const fb = document.getElementById(qid + '-feedback');
+            fb.classList.remove('hidden');
+            if (idx === item.correct) {
+                st.score++;
+                fb.className = 'mt-4 p-4 rounded-xl text-sm bg-emerald-500/15 border border-emerald-500/40 text-emerald-300';
+                fb.innerHTML = '<i class="fa-solid fa-check-circle mr-2"></i>' + item.feedback;
+            } else {
+                fb.className = 'mt-4 p-4 rounded-xl text-sm bg-red-500/15 border border-red-500/40 text-red-300';
+                fb.innerHTML = '<i class="fa-solid fa-times-circle mr-2"></i>Incorreto. ' + item.feedback;
+            }
+            document.getElementById(qid + '-next').classList.remove('hidden');
+        }
+
+        function nextQuiz(qid) {
+            const st = quizState[qid];
+            const data = QUIZ_DATA[qid];
+            st.index++;
+            if (st.index >= data.questions.length) {
+                document.getElementById(qid + '-container').classList.add('hidden');
+                document.getElementById(qid + '-result').classList.remove('hidden');
+                document.getElementById(qid + '-score').textContent = st.score;
+                document.getElementById(qid + '-total').textContent = data.questions.length;
+            } else {
+                renderQuiz(qid);
+            }
+        }
+
+        // Bind next buttons and init all quizzes
+        Object.keys(QUIZ_DATA).forEach(function(qid) {
+            const nextBtn = document.getElementById(qid + '-next');
+            if (nextBtn) {
+                nextBtn.addEventListener('click', function() { nextQuiz(qid); });
+            }
+            initQuiz(qid);
+        });
+
+        
+        // ========== TRADINGVIEW ==========
+        let tvLoaded = false;
+        function loadTV(symbol) {
+            document.querySelectorAll('.tv-btn').forEach(function(b) {
+                b.classList.remove('border-brandGold/40', 'bg-brandGold/15', 'text-brandGold');
+                b.classList.add('border-white/10', 'text-slate-400');
+            });
+            if (typeof event !== 'undefined' && event && event.target) {
+                event.target.classList.remove('border-white/10', 'text-slate-400');
+                event.target.classList.add('border-brandGold/40', 'bg-brandGold/15', 'text-brandGold');
+            }
+            const container = document.getElementById('tradingview_chart');
+            if (!container) return;
+            container.innerHTML = '';
+            const script = document.createElement('script');
+            script.src = 'https://s3.tradingview.com/tv.js';
+            script.onload = function() {
+                new TradingView.widget({
+                    width: '100%',
+                    height: 460,
+                    symbol: symbol,
+                    interval: 'D',
+                    timezone: 'America/Sao_Paulo',
+                    theme: 'dark',
+                    style: '1',
+                    locale: 'br',
+                    toolbar_bg: '#0F172A',
+                    enable_publishing: false,
+                    hide_side_toolbar: false,
+                    allow_symbol_change: true,
+                    container_id: 'tradingview_chart',
+                    backgroundColor: '#070A10',
+                    gridColor: '#1e293b'
+                });
+            };
+            container.appendChild(script);
+        }
+        // Lazy load when section visible
+        (function() {
+            const el = document.getElementById('mercado');
+            if (!el) return;
+            const obs = new IntersectionObserver(function(entries) {
+                if (entries[0].isIntersecting && !tvLoaded) {
+                    tvLoaded = true;
+                    loadTV('BINANCE:BTCUSDT');
+                    obs.disconnect();
+                }
+            }, { threshold: 0.15 });
+            obs.observe(el);
+        })();
+
+        // ========== RENDA FIXA VS INFLAÇÃO ==========
+        let rfChart = null;
+        function formatBRL(v) {
+            return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        }
+        function calcularRendaFixa() {
+            const principal = parseFloat(document.getElementById('rf-principal').value) || 0;
+            const taxaAA = parseFloat(document.getElementById('rf-taxa').value) || 0;
+            const ipcaAA = parseFloat(document.getElementById('rf-ipca').value) || 0;
+            const meses = parseInt(document.getElementById('rf-prazo').value, 10) || 1;
+            const taxaAM = Math.pow(1 + taxaAA / 100, 1 / 12) - 1;
+            const ipcaAM = Math.pow(1 + ipcaAA / 100, 1 / 12) - 1;
+            const bruto = principal * Math.pow(1 + taxaAM, meses);
+            const rendimento = bruto - principal;
+            let aliq = 0.225;
+            if (meses > 24) aliq = 0.15;
+            else if (meses > 12) aliq = 0.175;
+            else if (meses > 6) aliq = 0.20;
+            const ir = rendimento * aliq;
+            const liquido = bruto - ir;
+            const fatorInflacao = Math.pow(1 + ipcaAM, meses);
+            const real = liquido / fatorInflacao;
+            document.getElementById('rf-bruto').textContent = formatBRL(bruto);
+            document.getElementById('rf-ir').textContent = formatBRL(ir);
+            document.getElementById('rf-liquido').textContent = formatBRL(liquido);
+            document.getElementById('rf-real').textContent = formatBRL(real);
+            document.getElementById('rf-explicacao').textContent =
+                'Para ' + meses + ' meses, a alíquota de IR é ' + (aliq * 100).toFixed(1) + '%. Seu poder de compra real ficou em ' + ((real / principal - 1) * 100).toFixed(1) + '% após inflação e impostos.';
+            document.getElementById('rf-resultado').classList.remove('hidden');
+            const ctx = document.getElementById('rf-chart').getContext('2d');
+            if (rfChart) rfChart.destroy();
+            rfChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Inicial', 'Bruto', 'Líquido', 'Poder Real'],
+                    datasets: [{
+                        label: 'Valor (R$)',
+                        data: [principal, bruto, liquido, real],
+                        backgroundColor: ['#334155', '#3b82f6', '#10b981', '#D4AF37'],
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { ticks: { color: '#94a3b8' }, grid: { color: '#1e293b' } },
+                        x: { ticks: { color: '#94a3b8' }, grid: { display: false } }
+                    }
+                }
+            });
+        }
+
+        // ========== CONVERSOR GLOBAL ==========
+        const ratesGlobal = {
+            USD: 1, BRL: 5.70, EUR: 0.92, CHF: 0.88, GBP: 0.79,
+            JPY: 149, CNY: 7.25, AUD: 1.53, CAD: 1.36, INR: 83.5,
+            BTC: 1 / 95000, ETH: 1 / 3400, SATS: (1 / 95000) * 100000000
+        };
+        function converterGlobal() {
+            const valor = parseFloat(document.getElementById('conv-valor').value) || 0;
+            const from = document.getElementById('conv-from').value;
+            const to = document.getElementById('conv-to').value;
+            const emUSD = valor / ratesGlobal[from];
+            const resultado = emUSD * ratesGlobal[to];
+            let formatted;
+            if (to === 'BTC') formatted = resultado.toFixed(8) + ' BTC';
+            else if (to === 'ETH') formatted = resultado.toFixed(6) + ' ETH';
+            else if (to === 'SATS') formatted = Math.round(resultado).toLocaleString('pt-BR') + ' sats';
+            else if (to === 'JPY' || to === 'INR') formatted = Math.round(resultado).toLocaleString('pt-BR') + ' ' + to;
+            else formatted = resultado.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ' + to;
+            document.getElementById('conv-resultado').textContent = formatted;
+        }
+        function swapConv() {
+            const from = document.getElementById('conv-from');
+            const to = document.getElementById('conv-to');
+            const tmp = from.value;
+            from.value = to.value;
+            to.value = tmp;
+            converterGlobal();
+        }
+        // init converter on load
+        if (document.getElementById('conv-valor')) converterGlobal();
+
+        
+
+        
+        
+        // ========== HERO EARTH — conexões azuis ==========
+        (function () {
+            var canvas = document.getElementById('hero-globe');
+            if (!canvas) return;
+            var ctx = canvas.getContext('2d');
+            if (!ctx) return;
+
+            var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            var isMobile = window.matchMedia('(max-width: 768px)').matches;
+            var dpr = Math.min(window.devicePixelRatio || 1, 2);
+            var w = 0, h = 0, cx = 0, cy = 0, R = 0;
+            var rot = 0;
+            var raf = null;
+            var pulse = 0;
+
+            // Hubs approx (lat, lon) — major regions
+            var HUBS = [
+                { lat: 40.7, lon: -74 },    // NY
+                { lat: 51.5, lon: -0.1 },   // London
+                { lat: 48.9, lon: 2.3 },     // Paris
+                { lat: 35.7, lon: 139.7 },   // Tokyo
+                { lat: 22.3, lon: 114.2 },   // HK
+                { lat: 1.3, lon: 103.8 },    // Singapore
+                { lat: -23.5, lon: -46.6 },  // São Paulo
+                { lat: -34.6, lon: -58.4 },  // Buenos Aires
+                { lat: 19.4, lon: -99.1 },   // Mexico City
+                { lat: 25.2, lon: 55.3 },    // Dubai
+                { lat: 28.6, lon: 77.2 },    // Delhi
+                { lat: -33.9, lon: 151.2 },  // Sydney
+                { lat: 55.8, lon: 37.6 },    // Moscow
+                { lat: 37.5, lon: 127 },     // Seoul
+                { lat: 39.9, lon: 116.4 },   // Beijing
+                { lat: 6.5, lon: 3.4 },      // Lagos
+                { lat: -1.3, lon: 36.8 },    // Nairobi
+                { lat: 41.0, lon: 28.9 },    // Istanbul
+                { lat: 52.5, lon: 13.4 },    // Berlin
+                { lat: 34.0, lon: -118.2 }   // LA
+            ];
+
+            // Pairs to connect (indices)
+            var PAIRS = [
+                [0, 1], [0, 8], [0, 19], [1, 2], [1, 12], [1, 17],
+                [2, 18], [3, 4], [3, 13], [3, 14], [4, 5], [5, 10],
+                [5, 11], [6, 7], [6, 0], [6, 1], [9, 10], [9, 17],
+                [10, 3], [11, 3], [13, 14], [15, 16], [16, 9], [18, 12],
+                [7, 19], [8, 19], [4, 14], [2, 9]
+            ];
+
+            function resize() {
+                isMobile = window.matchMedia('(max-width: 768px)').matches;
+                w = canvas.clientWidth;
+                h = canvas.clientHeight;
+                canvas.width = Math.floor(w * dpr);
+                canvas.height = Math.floor(h * dpr);
+                ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+                cx = w * 0.5;
+                cy = h * 0.40;
+                R = Math.min(w, h) * (isMobile ? 0.36 : 0.30);
+            }
+
+            function latLonToVec(lat, lon) {
+                var la = lat * Math.PI / 180;
+                var lo = lon * Math.PI / 180;
+                return {
+                    x: Math.cos(la) * Math.cos(lo),
+                    y: Math.sin(la),
+                    z: Math.cos(la) * Math.sin(lo)
+                };
+            }
+
+            function project(vec, rotY) {
+                var cos = Math.cos(rotY), sin = Math.sin(rotY);
+                var x = vec.x * cos - vec.z * sin;
+                var z = vec.x * sin + vec.z * cos;
+                var y = vec.y;
+                var tilt = 0.40;
+                var y2 = y * Math.cos(tilt) - z * Math.sin(tilt);
+                var z2 = y * Math.sin(tilt) + z * Math.cos(tilt);
+                return {
+                    x: cx + x * R,
+                    y: cy - y2 * R,
+                    z: z2,
+                    vis: z2 > -0.05
+                };
+            }
+
+            function drawEarthBase() {
+                // Atmosphere glow
+                var atm = ctx.createRadialGradient(cx, cy, R * 0.85, cx, cy, R * 1.25);
+                atm.addColorStop(0, 'rgba(0, 180, 255, 0)');
+                atm.addColorStop(0.7, 'rgba(0, 180, 255, 0.06)');
+                atm.addColorStop(1, 'rgba(0, 180, 255, 0)');
+                ctx.beginPath();
+                ctx.arc(cx, cy, R * 1.22, 0, Math.PI * 2);
+                ctx.fillStyle = atm;
+                ctx.fill();
+
+                // Ocean sphere
+                var ocean = ctx.createRadialGradient(cx - R * 0.25, cy - R * 0.25, R * 0.1, cx, cy, R);
+                ocean.addColorStop(0, '#0a3a5c');
+                ocean.addColorStop(0.45, '#062438');
+                ocean.addColorStop(1, '#031018');
+                ctx.beginPath();
+                ctx.arc(cx, cy, R, 0, Math.PI * 2);
+                ctx.fillStyle = ocean;
+                ctx.fill();
+
+                // Specular highlight
+                var spec = ctx.createRadialGradient(cx - R * 0.3, cy - R * 0.35, 0, cx - R * 0.3, cy - R * 0.35, R * 0.7);
+                spec.addColorStop(0, 'rgba(120, 200, 255, 0.12)');
+                spec.addColorStop(1, 'rgba(0, 0, 0, 0)');
+                ctx.beginPath();
+                ctx.arc(cx, cy, R, 0, Math.PI * 2);
+                ctx.fillStyle = spec;
+                ctx.fill();
+
+                // Limb (edge) lighting
+                ctx.beginPath();
+                ctx.arc(cx, cy, R, 0, Math.PI * 2);
+                ctx.strokeStyle = 'rgba(0, 200, 255, 0.25)';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+
+                // Grid (subtle tech)
+                ctx.lineWidth = 0.7;
+                // latitudes
+                for (var lat = -60; lat <= 60; lat += 30) {
+                    ctx.beginPath();
+                    var first = true;
+                    for (var lon = -180; lon <= 180; lon += 6) {
+                        var pr = project(latLonToVec(lat, lon), rot);
+                        if (!pr.vis) { first = true; continue; }
+                        if (first) { ctx.moveTo(pr.x, pr.y); first = false; }
+                        else ctx.lineTo(pr.x, pr.y);
+                    }
+                    ctx.strokeStyle = 'rgba(0, 180, 255, 0.07)';
+                    ctx.stroke();
+                }
+                // meridians
+                for (var lon2 = -180; lon2 < 180; lon2 += 30) {
+                    ctx.beginPath();
+                    first = true;
+                    for (var lat2 = -80; lat2 <= 80; lat2 += 5) {
+                        var pr2 = project(latLonToVec(lat2, lon2), rot);
+                        if (!pr2.vis) { first = true; continue; }
+                        if (first) { ctx.moveTo(pr2.x, pr2.y); first = false; }
+                        else ctx.lineTo(pr2.x, pr2.y);
+                    }
+                    ctx.strokeStyle = 'rgba(0, 180, 255, 0.06)';
+                    ctx.stroke();
+                }
+
+                // Soft continent blobs (stylized land masses)
+                var lands = [
+                    // Americas rough
+                    { lat: 40, lon: -100, rx: 0.35, ry: 0.45 },
+                    { lat: 10, lon: -75, rx: 0.18, ry: 0.28 },
+                    { lat: -15, lon: -55, rx: 0.28, ry: 0.4 },
+                    // Europe/Africa
+                    { lat: 50, lon: 15, rx: 0.25, ry: 0.2 },
+                    { lat: 10, lon: 20, rx: 0.3, ry: 0.4 },
+                    // Asia
+                    { lat: 45, lon: 90, rx: 0.45, ry: 0.3 },
+                    { lat: 25, lon: 80, rx: 0.28, ry: 0.25 },
+                    { lat: 35, lon: 135, rx: 0.12, ry: 0.15 },
+                    // Australia
+                    { lat: -25, lon: 135, rx: 0.2, ry: 0.15 }
+                ];
+                for (var i = 0; i < lands.length; i++) {
+                    var L = lands[i];
+                    var center = project(latLonToVec(L.lat, L.lon), rot);
+                    if (!center.vis) continue;
+                    var scale = 0.55 + 0.45 * ((center.z + 1) / 2);
+                    ctx.beginPath();
+                    ctx.ellipse(center.x, center.y, R * L.rx * scale, R * L.ry * scale, 0, 0, Math.PI * 2);
+                    ctx.fillStyle = 'rgba(0, 90, 140,' + (0.25 * scale) + ')';
+                    ctx.fill();
+                }
+            }
+
+            function drawArc(a, b) {
+                if (!a.vis || !b.vis) return;
+                // quadratic curve lifted outward
+                var mx = (a.x + b.x) / 2;
+                var my = (a.y + b.y) / 2;
+                var dx = b.x - a.x;
+                var dy = b.y - a.y;
+                var dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist < 8) return;
+                // push control point away from globe center
+                var midAwayX = mx - cx;
+                var midAwayY = my - cy;
+                var midLen = Math.sqrt(midAwayX * midAwayX + midAwayY * midAwayY) || 1;
+                var lift = Math.min(dist * 0.35, R * 0.35);
+                var cpx = mx + (midAwayX / midLen) * lift * 0.4;
+                var cpy = my + (midAwayY / midLen) * lift * 0.4;
+
+                var alpha = 0.15 + 0.25 * ((a.z + b.z) * 0.5 + 0.5);
+                alpha *= 0.7 + 0.3 * Math.sin(pulse + dist * 0.02);
+
+                ctx.beginPath();
+                ctx.moveTo(a.x, a.y);
+                ctx.quadraticCurveTo(cpx, cpy, b.x, b.y);
+                ctx.strokeStyle = 'rgba(0, 220, 255,' + alpha + ')';
+                ctx.lineWidth = isMobile ? 1 : 1.25;
+                ctx.stroke();
+
+                // traveling glow dot
+                var t = (Math.sin(pulse * 0.8 + dist * 0.03) + 1) / 2;
+                var ox = (1 - t) * (1 - t) * a.x + 2 * (1 - t) * t * cpx + t * t * b.x;
+                var oy = (1 - t) * (1 - t) * a.y + 2 * (1 - t) * t * cpy + t * t * b.y;
+                ctx.beginPath();
+                ctx.arc(ox, oy, isMobile ? 1.5 : 2, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(180, 240, 255,' + (0.5 + 0.5 * alpha) + ')';
+                ctx.fill();
+            }
+
+            function draw() {
+                ctx.clearRect(0, 0, w, h);
+                drawEarthBase();
+
+                var projected = [];
+                for (var i = 0; i < HUBS.length; i++) {
+                    projected.push(project(latLonToVec(HUBS[i].lat, HUBS[i].lon), rot));
+                }
+
+                // connections
+                var maxPairs = isMobile ? 18 : PAIRS.length;
+                for (var p = 0; p < maxPairs; p++) {
+                    var pair = PAIRS[p];
+                    drawArc(projected[pair[0]], projected[pair[1]]);
+                }
+
+                // hubs
+                for (var j = 0; j < projected.length; j++) {
+                    var pt = projected[j];
+                    if (!pt.vis) continue;
+                    var glow = 0.4 + 0.6 * ((pt.z + 1) / 2);
+                    var r = (isMobile ? 2.2 : 2.8) * (0.7 + 0.3 * glow);
+                    // outer glow
+                    var g = ctx.createRadialGradient(pt.x, pt.y, 0, pt.x, pt.y, r * 4);
+                    g.addColorStop(0, 'rgba(0, 220, 255,' + (0.35 * glow) + ')');
+                    g.addColorStop(1, 'rgba(0, 220, 255, 0)');
+                    ctx.beginPath();
+                    ctx.arc(pt.x, pt.y, r * 4, 0, Math.PI * 2);
+                    ctx.fillStyle = g;
+                    ctx.fill();
+                    // core
+                    ctx.beginPath();
+                    ctx.arc(pt.x, pt.y, r, 0, Math.PI * 2);
+                    ctx.fillStyle = 'rgba(200, 245, 255,' + (0.75 + 0.25 * glow) + ')';
+                    ctx.fill();
+                }
+
+                if (!reduced) {
+                    rot += isMobile ? 0.0012 : 0.0015;
+                    pulse += 0.04;
+                    raf = requestAnimationFrame(draw);
+                }
+            }
+
+            function init() {
+                resize();
+                draw();
+            }
+
+            window.addEventListener('resize', function () {
+                if (raf) cancelAnimationFrame(raf);
+                init();
+            });
+
+            init();
+        })();
+
+// Mobile nav
+        (function () {
+            var btn = document.getElementById('nav-toggle');
+            var menu = document.getElementById('mobile-menu');
+            var icon = document.getElementById('nav-toggle-icon');
+            if (!btn || !menu) return;
+            btn.addEventListener('click', function () {
+                menu.classList.toggle('hidden');
+                if (icon) {
+                    icon.classList.toggle('fa-bars');
+                    icon.classList.toggle('fa-xmark');
+                }
+            });
+            menu.querySelectorAll('.mobile-link').forEach(function (a) {
+                a.addEventListener('click', function () {
+                    menu.classList.add('hidden');
+                    if (icon) { icon.classList.add('fa-bars'); icon.classList.remove('fa-xmark'); }
+                });
+            });
+        })();
+
+// Fallback se AOS não carregar (ex.: abrir HTML offline)
+        setTimeout(function() {
+            if (typeof AOS === 'undefined') {
+                document.querySelectorAll('[data-aos]').forEach(function(el) {
+                    el.style.opacity = '1';
+                    el.style.transform = 'none';
+                });
+            }
+        }, 1200);
+
+        try {
         AOS.init({
             duration: 800,
             once: true,
         });
+        var fb = document.getElementById('aos-fallback');
+        if (fb) fb.remove();
+        } catch (e) {
+            document.querySelectorAll('[data-aos]').forEach(function(el) {
+                el.style.opacity = '1';
+                el.style.transform = 'none';
+            });
+        }
     </script>
 </body>
 </html>
